@@ -1,61 +1,37 @@
 import axiosInstance from "../axios/axiosInstance";
+import type { Token, TokenCreateRequest, TokenCreateResponse } from "../types/token";
+import { formatDateTime } from "../utils/dateFormatter";
 
-export interface TokenCreateRequest {
-    name: string;
-    scopes: string[];
-}
+const baseUrl = '/web/gitbase/tokens';
 
-export interface TokenCreateResponse {
-    token: string;
-    note: string;
-}
-
-export interface Token {
-    id: string;
-    name: string;
-    lastUsed: string;
-    createdAt: string;
-    scopes: string[];
-}
-
-class TokenService {
-    private baseUrl = '/git/tokens';
+export const tokenService = {
 
     async createToken(request: TokenCreateRequest): Promise<TokenCreateResponse> {
         console.log('Creating token with request:', request);
 
         const response = await axiosInstance.post<TokenCreateResponse>(
-            this.baseUrl,
-            request.name
+            baseUrl,
+            request
         );
 
         console.log('Token created:', response.data);
         return response.data;
-    }
+    },
 
     async listTokens(): Promise<Token[]> {
-        const response = await axiosInstance.get<Token[]>(this.baseUrl);
-        return response.data;
-    }
+        const response = await axiosInstance.get<Token[]>(baseUrl);
+
+        const formattedTokens = response.data.map(token => ({
+            ...token,
+            createdAt: formatDateTime(token.createdAt),
+            expiresAt: formatDateTime(token.expiresAt)
+        }));
+
+        console.log('Fetched tokens:', formattedTokens);
+        return formattedTokens;
+    },
 
     async revokeToken(tokenId: string): Promise<void> {
-        await axiosInstance.delete(`${this.baseUrl}/${tokenId}`);
-    }
-
-    // Helper method to convert scopes array to string format expected by backend
-    formatScopes(scopes: string[]): string {
-        return scopes.map(scope => {
-            // Add read/write permissions based on scope
-            if (scope === 'repo') {
-                return 'repo:read,repo:write';
-            }
-            if (scope === 'workflow') {
-                return 'workflow:read,workflow:write';
-            }
-            // Add more scope formatting as needed
-            return scope;
-        }).join(',');
+        await axiosInstance.delete(`${baseUrl}/${tokenId}`);
     }
 }
-
-export const tokenService = new TokenService();

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { tokenService, type Token } from '../../services/tokenService';
+import { tokenService } from '../../services/tokenService';
+import type { Token } from '../../types/token';
+import TokenTable from '../Token/TokenTable';
 
 export const SecuritySettings: React.FC = () => {
     const [tokens, setTokens] = useState<Token[]>([]);
@@ -28,12 +30,8 @@ export const SecuritySettings: React.FC = () => {
     };
 
     const scopes = [
-        { name: 'repo', description: 'Full control of private repositories' },
-        { name: 'workflow', description: 'Update GitHub Action workflows' },
-        { name: 'write:packages', description: 'Upload packages to GitBase Package Registry' },
-        { name: 'delete:packages', description: 'Delete packages from GitBase Package Registry' },
-        { name: 'admin:org', description: 'Full control of organizations and teams' },
-        { name: 'gist', description: 'Create and modify gists' },
+        { name: 'repo:write', description: 'write in repositories' },
+        { name: 'repo:read', description: 'read in repositories' }
     ];
 
     const handleScopeToggle = (scope: string) => {
@@ -58,7 +56,7 @@ export const SecuritySettings: React.FC = () => {
             setLoading(true);
             const response = await tokenService.createToken({
                 name: newTokenName,
-                scopes: selectedScopes
+                scopes: selectedScopes.join(','),
             });
 
             await loadTokens(); // Refresh the token list
@@ -195,31 +193,10 @@ export const SecuritySettings: React.FC = () => {
             {/* Existing Tokens */}
             <div className="mt-6">
                 <h3 className="text-lg font-medium text-gitbase-text-primary mb-4">Active tokens</h3>
-                <div className="space-y-4">
-                    {tokens.map(token => (
-                        <div key={token.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-                            <div>
-                                <h4 className="text-sm font-medium text-gitbase-text-primary">{token.name}</h4>
-                                <p className="text-xs text-gitbase-text-secondary">
-                                    Created on {new Date(token.createdAt).toLocaleDateString()} • Last used: {token.lastUsed}
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => deleteToken(token.id)}
-                                className="px-3 py-1 text-sm text-gitbase-danger hover:bg-gitbase-danger/10 
-                         rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={loading}
-                            >
-                                {loading ? 'Revoking...' : 'Revoke'}
-                            </button>
-                        </div>
-                    ))}
-                    {tokens.length === 0 && (
-                        <p className="text-sm text-gitbase-text-secondary text-center py-4">
-                            No active tokens
-                        </p>
-                    )}
-                </div>
+                <TokenTable
+                    tokens={tokens}
+                    onRevoke={(tokenId: number) => deleteToken(tokenId.toString())}
+                />
             </div>
         </div>
     );

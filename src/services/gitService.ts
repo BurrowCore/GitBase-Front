@@ -7,7 +7,7 @@ export const gitService = {
 
     async createRepository(gitRepository: createRepository): Promise<unknown> {
         try {
-            const response = await axiosInstance.post<unknown>('/gitbase/create', gitRepository);
+            const response = await axiosInstance.post<unknown>('/web/gitbase/create', gitRepository);
 
             return response.data;
         } catch (error) {
