@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAppSelector } from '../../features/store';
 import { gitService } from '../../services/gitService';
-import type { createElement } from '@emotion/react';
+import { useNavigate } from 'react-router-dom';
+// ...existing code...
 import type { createRepository } from '../../types/git';
 
 interface RepositoryFormProps {
@@ -17,13 +18,24 @@ export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
         defaultBranch: "main"
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const navigate = useNavigate();
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         onSubmit(formData);
-        gitService.createRepository({
-            ...formData,
-            username: user?.name
-        });
+        try {
+            await gitService.createRepository({
+                ...formData,
+                username: user?.name
+            });
+
+                const username = encodeURIComponent(String(user?.name || ''));
+                const repo = encodeURIComponent(String(formData.repoName || ''));
+                navigate(`/gitbase/${username}/${repo}`);
+        } catch (err) {
+            // Let the existing error handling surface (could show toast later)
+            console.error('Failed to create repository', err);
+        }
     };
 
     return (

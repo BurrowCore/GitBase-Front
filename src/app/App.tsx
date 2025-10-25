@@ -21,6 +21,7 @@ import ProtectedLayout from './ProtectedLayout.tsx';
 import { setLogoutCallback } from '../axios/axiosInstance.ts';
 import { checkAuthState } from '../features/auth/authSlice.ts';
 import Home from '../pages/Home.tsx';
+import GitbaseRepo from '../pages/GitbaseRepo.tsx';
 
 interface AuthCheckProps {
   requiredRoles?: string[];
@@ -28,7 +29,7 @@ interface AuthCheckProps {
 }
 
 const AuthCheck: React.FC<AuthCheckProps> = ({ children }) => {
-  const { isLoggedIn, user } = useSelector((state: RootState) => state.auth);
+  const { isLoggedIn } = useSelector((state: RootState) => state.auth);
 
   if (!isLoggedIn) {
     return <Navigate to="/login" />;
@@ -39,7 +40,7 @@ const AuthCheck: React.FC<AuthCheckProps> = ({ children }) => {
 
 const ProtectedLayoutWrapper = () => {
   const dispatch = useDispatch();
-  const { loading, isLoggedIn, user } = useSelector((state: RootState) => state.auth);
+  const { loading } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
     const handleLogout = () => {
@@ -93,6 +94,11 @@ export const router = createBrowserRouter([
             path: "/new",
             element: <AuthCheck><NewRepository /></AuthCheck>
           }
+              ,
+              {
+                path: "/gitbase/:username/:repo",
+                element: <AuthCheck><GitbaseRepo /></AuthCheck>
+              }
         ]
       },
       {
