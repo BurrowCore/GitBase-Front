@@ -14,6 +14,7 @@ interface RegisterFormProps {
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState<RegisterDTO>({
+    fullName:'',
     name: '',
     email: '',
     password: ''
@@ -36,7 +37,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    formData.name = formData.email.split('@')[0];
     if (formData.password !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -110,17 +111,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
           <div className="space-y-6">
             <div className="rounded-2xl bg-white/10 backdrop-blur-xl p-8 border border-gitbase-border-light/10 shadow-xl space-y-6">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gitbase-text-primary mb-2">
+                <label htmlFor="fullName" className="block text-sm font-medium text-gitbase-text-primary mb-2">
                   Full Name
                 </label>
                 <input
-                  id="name"
-                  name="name"
+                  id="fullName"
+                  name="fullName"
                   type="text"
                   required
                   className="appearance-none block w-full px-4 py-3 border border-gitbase-border-light bg-white/20 backdrop-blur-xl text-gitbase-text-primary rounded-xl focus:outline-none focus:ring-2 focus:ring-gitbase-primary/50 focus:border-gitbase-primary/50 sm:text-sm placeholder-gitbase-text-secondary/70"
                   placeholder="Enter your full name"
-                  value={formData.name}
+                  value={formData.fullName}
                   onChange={handleInputChange}
                 />
               </div>

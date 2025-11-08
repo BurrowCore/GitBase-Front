@@ -15,6 +15,16 @@ export const gitService = {
         }
     },
 
+    async listRepositories(username: string): Promise<any[]> {
+        try {
+            console.log('Listing repositories for user:', username);
+            const resp = await axiosInstance.get<any[]>(`/web/gitbase/repositories/${username}`);
+            return resp.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
 
     handleError(error: any): Error {
         if (error.response?.data?.message) {

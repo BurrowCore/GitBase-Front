@@ -19,6 +19,7 @@ export interface RegisterDTO {
   email: string;
   password: string;
   name: string;
+  fullName: string;
 }
 
 export interface OAuthUrlResponse {
@@ -28,6 +29,7 @@ export interface OAuthUrlResponse {
 
 export interface UserInfo {
   id: string;
+  fullName: string;
   name: string;
   email: string;
   profilePictureUrl?: string;
@@ -41,6 +43,7 @@ export interface Role {
 
 export interface User {
   id: string;
+  fullName: string;
   name: string;
   email: string;
   googleId?: string;

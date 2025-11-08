@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useAppSelector } from '../../features/store';
+import { useAppSelector, useAppDispatch } from '../../features/store';
 import { gitService } from '../../services/gitService';
 import { useNavigate } from 'react-router-dom';
+import { fetchUserRepos } from '../../features/repos/reposSlice';
 // ...existing code...
 import type { createRepository } from '../../types/git';
 
@@ -11,6 +12,8 @@ interface RepositoryFormProps {
 
 export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
     const { user } = useAppSelector(state => state.auth);
+
+    const dispatch = useAppDispatch();
 
     const [formData, setFormData] = useState<createRepository>({
         repoName: '',
@@ -24,16 +27,20 @@ export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
         e.preventDefault();
         onSubmit(formData);
         try {
-            await gitService.createRepository({
+            const payload: any = {
                 ...formData,
-                username: user?.name
-            });
-
-                const username = encodeURIComponent(String(user?.name || ''));
-                const repo = encodeURIComponent(String(formData.repoName || ''));
-                navigate(`/gitbase/${username}/${repo}`);
+                username: user?.name,
+                // ensure backend receives the camelCase isPrivate field
+                isPrivate: Boolean(formData.isPrivate)
+            };
+            console.log('Payload for repository creation:', payload);
+                const result = await gitService.createRepository(payload as any);
+                console.debug('createRepository response', result);
+                if (user?.name) dispatch(fetchUserRepos(user.name) as any);
+            const username = encodeURIComponent(String(user?.name || ''));
+            const repo = encodeURIComponent(String(formData.repoName || ''));
+            navigate(`/gitbase/${username}/${repo}`);
         } catch (err) {
-            // Let the existing error handling surface (could show toast later)
             console.error('Failed to create repository', err);
         }
     };
@@ -94,8 +101,8 @@ export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
                         <div className="flex items-center space-x-4">
                             <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, isPrivate: true })}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium ${formData.isPrivate
+                                onClick={() => setFormData({ ...formData, isPrivate: false })}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium ${!formData.isPrivate
                                     ? 'bg-gitbase-primary text-white'
                                     : 'bg-white/5 text-gitbase-text-primary hover:bg-white/10'
                                     }`}
@@ -104,8 +111,8 @@ export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, isPrivate: false })}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium ${!formData.isPrivate
+                                onClick={() => setFormData({ ...formData, isPrivate: true })}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium ${formData.isPrivate
                                     ? 'bg-gitbase-primary text-white'
                                     : 'bg-white/5 text-gitbase-text-primary hover:bg-white/10'
                                     }`}

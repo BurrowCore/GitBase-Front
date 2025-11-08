@@ -1,30 +1,26 @@
-import React, { useCallback, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
+import { useAppSelector } from '../features/store';
 
 const GitbaseRepo: React.FC = () => {
-  const { username, repo } = useParams<{ username: string; repo: string }>();
   const navigate = useNavigate();
-  const backendUrl = `http://localhost:8880/gitbase/${username}/${repo}.git`;
+  const [copied, setCopied] = useState<string | null>(null);
+  const authUser = useAppSelector((s) => s.auth.user);
+  const displayUsername = authUser?.name || '';
+  const parts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+  const repo = parts[parts.length - 1] || '';
+  const backendUrl = `http://localhost:8880/gitbase/${displayUsername}/${repo}.git`;
 
-  const openBackend = useCallback(() => {
-    window.open(backendUrl, '_blank', 'noopener');
-  }, [backendUrl]);
-
-  const copyToClipboard = useCallback(async (text: string) => {
+  const handleCopy = async (text: string, key: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1600);
     } catch (e) {
       console.error('copy failed', e);
     }
-  }, []);
-
-  const [copied, setCopied] = useState<string | null>(null);
-  const copyWithFeedback = useCallback(async (text: string, key: string) => {
-    await copyToClipboard(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1600);
-  }, [copyToClipboard]);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gitbase-dark via-gitbase-secondary to-gitbase-dark">
@@ -37,9 +33,11 @@ const GitbaseRepo: React.FC = () => {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-r from-gitbase-purple to-gitbase-pink flex items-center justify-center text-white">{(username||'U').charAt(0).toUpperCase()}</div>
+                <div className="w-9 h-9 rounded-full bg-gradient-to-r from-gitbase-purple to-gitbase-pink flex items-center justify-center text-white">{(displayUsername||'U').charAt(0).toUpperCase()}</div>
                 <div>
-                  <div className="text-sm text-gitbase-text-secondary">{username} / <span className="text-white font-semibold">{repo}</span> <span className="ml-2 inline-block px-2 py-0.5 text-xs bg-white/5 rounded text-gitbase-text-primary">Private</span></div>
+                  <div className="text-sm text-gitbase-text-secondary">
+                    {displayUsername} / <span className="text-white font-semibold">{repo}</span>
+                  </div>
                 </div>
               </div>
         </div>
@@ -49,16 +47,14 @@ const GitbaseRepo: React.FC = () => {
             <div className="px-5 py-3 bg-gitbase-surface-dark/90 border-t border-gitbase-border-dark/20">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-white font-semibold">Quick setup — if you've done this kind of thing before</div>
-                <div className="flex items-center gap-3">
-                  <div className="px-2 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary">HTTPS</div>
-                  <div className="px-2 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary">SSH</div>
-                </div>
               </div>
 
               <div className="mt-3 relative">
                 <div className="rounded bg-gitbase-surface-dark/80 p-3 border border-gitbase-border-dark/30 flex items-center justify-between">
                   <div className="text-sm text-gitbase-text-primary break-all">{backendUrl.replace('http://', '').replace('https://', '')}</div>
-                  <button onClick={() => copyWithFeedback(backendUrl, 'quick-url')} className="ml-4 px-3 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary">{copied === 'quick-url' ? 'Copied' : 'Copy'}</button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleCopy(backendUrl, 'quick-url')} className="px-3 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary">{copied === 'quick-url' ? 'Copied' : 'Copy'}</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -69,7 +65,7 @@ const GitbaseRepo: React.FC = () => {
             <div className="rounded bg-gitbase-surface-dark border border-gitbase-border-dark/30 p-4">
               <div className="flex items-center justify-between">
                 <div className="text-white font-medium">...or create a new repository on the command line</div>
-                <button onClick={() => copyWithFeedback(`echo \"# ${repo}\" >> README.md\ngit init\ngit add README.md\ngit commit -m \"first commit\"\ngit branch -M master\ngit remote add origin ${backendUrl}\ngit push -u origin master`, 'create')} className="px-3 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary">{copied === 'create' ? 'Copied' : 'Copy'}</button>
+                <button onClick={() => handleCopy(`echo "# ${repo}" >> README.md\ngit init\ngit add README.md\ngit commit -m "first commit"\ngit branch -M master\ngit remote add origin ${backendUrl}\ngit push -u origin master`, 'create')} className="px-3 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary">{copied === 'create' ? 'Copied' : 'Copy'}</button>
               </div>
               <div className="mt-3 rounded bg-gitbase-surface-dark/80 p-4 border border-gitbase-border-dark/20">
                 <pre className="whitespace-pre-wrap text-sm text-white">{`echo "# ${repo}" >> README.md

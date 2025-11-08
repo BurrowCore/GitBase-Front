@@ -22,6 +22,7 @@ import { setLogoutCallback } from '../axios/axiosInstance.ts';
 import { checkAuthState } from '../features/auth/authSlice.ts';
 import Home from '../pages/Home.tsx';
 import GitbaseRepo from '../pages/GitbaseRepo.tsx';
+import Projects from '../pages/Projects';
 
 interface AuthCheckProps {
   requiredRoles?: string[];
@@ -85,6 +86,10 @@ export const router = createBrowserRouter([
           {
             path: "/dashboard",
             element: <AuthCheck><Dashboard /></AuthCheck>
+          },
+          {
+            path: "/projects",
+            element: <AuthCheck><Projects /></AuthCheck>
           },
           {
             path: "/settings",

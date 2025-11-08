@@ -31,7 +31,7 @@ export const QuickActions: React.FC = () => {
                     </div>
                     <span className="text-gitbase-text-primary font-medium">Clone Repo</span>
                 </button>
-                <button className="flex items-center space-x-3 p-4 rounded-lg bg-gitbase-dark hover:bg-gitbase-secondary border border-gitbase-border transition-all duration-200 group">
+                <button onClick={() => navigate('/projects')} className="flex items-center space-x-3 p-4 rounded-lg bg-gitbase-dark hover:bg-gitbase-secondary border border-gitbase-border transition-all duration-200 group">
                     <div className="p-2 bg-gitbase-success/10 rounded-lg text-gitbase-success group-hover:bg-gitbase-success/20">
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />

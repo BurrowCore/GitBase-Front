@@ -2,18 +2,12 @@ import React from 'react';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { RepositoryForm } from '../components/Repository/RepositoryForm';
 import { useNavigate } from 'react-router-dom';
+import type { createRepository } from '../types/git';
 
 export const NewRepository: React.FC = () => {
     const navigate = useNavigate();
 
-    const handleCreateRepository = (formData: {
-        name: string;
-        description: string;
-        isPublic: boolean;
-        hasReadme: boolean;
-        gitignoreTemplate: string;
-        license: string;
-    }) => {
+    const handleCreateRepository = (formData: createRepository) => {
         console.log('Creating repository:', formData);
     };
 
