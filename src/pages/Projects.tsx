@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import ProjectCard from '../components/Projects/ProjectCard';
 import { useAppDispatch, useAppSelector } from '../features/store';
@@ -6,6 +7,7 @@ import { fetchUserRepos } from '../features/repos/reposSlice';
 
 const Projects: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { items, loading } = useAppSelector(state => state.repos);
   const authUser = useAppSelector(state => state.auth.user);
 
@@ -28,8 +30,13 @@ const Projects: React.FC = () => {
           {loading ? (
             <div className="text-gitbase-text-secondary">Loading...</div>
           ) : (
-            items.map((r: any) => (
-              <ProjectCard key={r.repoName} name={r.repoName} description={r.root || ''} visibility={r.private ? 'Private' : 'Public'} updatedAt={''} onOpen={() => window.location.href = `/gitbase/${encodeURIComponent(String(authUser?.name || ''))}/${r.repoName}`} />
+            items.map((r) => (
+              <ProjectCard
+                key={r.repoName}
+                name={r.repoName}
+                visibility={r.private ? 'Private' : 'Public'}
+                onOpen={() => navigate(`/gitbase/${encodeURIComponent(String(authUser?.name || ''))}/${r.repoName}`)}
+              />
             ))
           )}
         </div>

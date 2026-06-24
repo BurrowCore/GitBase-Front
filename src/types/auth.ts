@@ -1,7 +1,10 @@
+/**
+ * Payload returned in `data` by /auth/login, /auth/google and /auth/refreshToken.
+ *
+ * NOTE: access/refresh tokens are delivered as HttpOnly cookies, NOT in the body.
+ * Do not expect token strings here.
+ */
 export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
   expiresIn: number;
   user: UserInfo;
 }
@@ -66,15 +69,8 @@ export interface RefreshToken {
   user: User;
 }
 
-export enum AuthProvider {
-  LOCAL = 'LOCAL',
-  GOOGLE = 'GOOGLE'
-}
+// Union instead of enum so the type is fully erasable (tsconfig: erasableSyntaxOnly).
+export type AuthProvider = 'LOCAL' | 'GOOGLE';
 
-export interface ApiResponse<T> {
-  timestamp: string;
-  success: boolean;
-  message: string;
-  httpStatus: string;
-  data: T;
-} 
+// Canonical envelope lives in ./api — re-exported here for backward-compatible imports.
+export type { ApiResponse } from './api';

@@ -1,3 +1,21 @@
+/** GitHub-style relative time from an epoch-millis timestamp, e.g. "3 days ago". */
+export const formatRelativeTime = (epochMillis?: number): string => {
+    if (!epochMillis) return '';
+    const diff = Date.now() - epochMillis;
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return 'just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min} minute${min > 1 ? 's' : ''} ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr} hour${hr > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hr / 24);
+    if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+    const years = Math.floor(months / 12);
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+};
+
 export const formatDateTime = (dateTimeString: string) => {
     const date = new Date(dateTimeString);
     return date.toLocaleDateString('en-US', {
