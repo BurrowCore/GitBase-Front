@@ -275,6 +275,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List local branches (live)
+         * @description Branches read live from JGit refs/heads, each with its head commit. Default branch flagged.
+         */
+        get: operations["listBranches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/web/gitbase/{username}/{repoName}/commits": {
         parameters: {
             query?: never;
@@ -560,6 +580,13 @@ export interface components {
             binary?: boolean;
             content?: string | null;
         };
+        /** @description A branch with its head commit. Mirrors backend BranchSummaryDto. */
+        BranchSummary: {
+            name?: string;
+            commitSha?: string;
+            shortSha?: string;
+            isDefault?: boolean;
+        };
         /** @description One page of commit history. Mirrors backend CommitPageDto. */
         CommitPage: {
             ref?: string;
@@ -754,6 +781,15 @@ export interface components {
             httpStatus?: string;
             error?: string | null;
             data?: components["schemas"]["DirectoryListing"];
+        };
+        ApiResponseBranchList: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["BranchSummary"][];
         };
         ApiResponseCommitPage: {
             /** Format: date-time */
@@ -1248,6 +1284,38 @@ export interface operations {
                 };
             };
             /** @description Repository or path not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listBranches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Branch list returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBranchList"];
+                };
+            };
+            /** @description Repository not found */
             404: {
                 headers: {
                     [name: string]: unknown;

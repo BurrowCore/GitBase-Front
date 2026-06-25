@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CommitDetail, FileDiff } from '../../types/git';
 import { formatRelativeTime } from '../../utils/dateFormatter';
 
@@ -27,28 +28,35 @@ function diffLineClass(line: string): string {
 }
 
 function FileDiffBlock({ file }: { file: FileDiff }) {
+  const [collapsed, setCollapsed] = useState(false);
   return (
     <div className="rounded-lg border border-gitbase-border-dark/30 overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2 bg-gitbase-surface-dark/80 border-b border-gitbase-border-dark/30 text-sm">
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full flex items-center gap-2 px-4 py-2 bg-gitbase-surface-dark/80 border-b border-gitbase-border-dark/30 text-sm hover:bg-white/5"
+      >
+        <span className="text-gitbase-text-secondary text-xs w-3">{collapsed ? '▸' : '▾'}</span>
         <span className={`px-1.5 py-0.5 rounded text-xs ${CHANGE_BADGE[file.changeType]}`}>
           {file.changeType}
         </span>
-        <span className="font-mono text-gitbase-text-primary truncate flex-1">
+        <span className="font-mono text-gitbase-text-primary truncate flex-1 text-left">
           {file.oldPath && file.oldPath !== file.path ? `${file.oldPath} → ${file.path}` : file.path}
         </span>
         <span className="text-xs text-green-400">+{file.additions}</span>
         <span className="text-xs text-red-400">−{file.deletions}</span>
-      </div>
-      {file.binary || file.patch == null ? (
-        <div className="px-4 py-3 text-sm text-gitbase-text-secondary">Binary file not shown.</div>
-      ) : (
-        <pre className="text-xs font-mono overflow-x-auto">
-          {file.patch.split('\n').map((line, i) => (
-            <div key={i} className={`px-4 ${diffLineClass(line)}`}>
-              {line || ' '}
-            </div>
-          ))}
-        </pre>
+      </button>
+      {!collapsed && (
+        file.binary || file.patch == null ? (
+          <div className="px-4 py-3 text-sm text-gitbase-text-secondary">Binary file not shown.</div>
+        ) : (
+          <pre className="text-xs font-mono overflow-x-auto">
+            {file.patch.split('\n').map((line, i) => (
+              <div key={i} className={`px-4 ${diffLineClass(line)}`}>
+                {line || ' '}
+              </div>
+            ))}
+          </pre>
+        )
       )}
     </div>
   );

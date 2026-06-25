@@ -89,6 +89,14 @@ export interface DirectoryListing {
     entries: DirEntry[];
 }
 
+/** A branch with its head commit. Mirrors backend BranchSummaryDto. */
+export interface BranchSummary {
+    name: string;
+    commitSha: string;
+    shortSha: string;
+    isDefault: boolean;
+}
+
 /** One page of commit history. Mirrors backend CommitPageDto. */
 export interface CommitPage {
     ref: string;

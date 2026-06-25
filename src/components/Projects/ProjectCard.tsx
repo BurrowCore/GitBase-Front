@@ -2,40 +2,49 @@ import React from 'react';
 
 type ProjectCardProps = {
   name: string;
-  description?: string;
   visibility?: 'Public' | 'Private';
-  stars?: number;
-  updatedAt?: string;
+  entryCount?: number;
+  empty?: boolean;
   onOpen?: () => void;
 };
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ name, description, visibility = 'Private', stars = 0, updatedAt, onOpen }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({ name, visibility = 'Private', entryCount, empty, onOpen }) => {
   return (
-    <div className="bg-gitbase-surface-dark border border-gitbase-border-dark/30 rounded-2xl p-5 hover:shadow-xl transition-shadow">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-md bg-gradient-to-r from-gitbase-purple to-gitbase-pink flex items-center justify-center text-white text-lg font-semibold">{name.charAt(0).toUpperCase()}</div>
-            <div>
-              <div className="text-white font-semibold">{name}</div>
-              <div className="text-sm text-gitbase-text-secondary">{description || 'No description provided.'}</div>
-            </div>
+    <button
+      onClick={onOpen}
+      className="group text-left w-full bg-gitbase-surface-dark border border-gitbase-border-dark/30 rounded-2xl p-5 hover:border-gitbase-primary/50 hover:shadow-xl hover:-translate-y-0.5 transition-all"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-md bg-gradient-to-r from-gitbase-purple to-gitbase-pink flex items-center justify-center text-white text-lg font-semibold flex-shrink-0">
+          {name.charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-white font-semibold truncate group-hover:text-gitbase-primary">{name}</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide border flex-shrink-0 ${
+                visibility === 'Private'
+                  ? 'border-yellow-500/30 text-yellow-400/90'
+                  : 'border-green-500/30 text-green-400/90'
+              }`}
+            >
+              {visibility}
+            </span>
+          </div>
+          <div className="text-sm text-gitbase-text-secondary mt-0.5 truncate">
+            {empty ? 'Empty repository' : 'Git repository'}
           </div>
         </div>
-
-        <div className="text-right">
-          <div className="text-xs text-gitbase-text-secondary">{visibility}</div>
-          <div className="mt-2 text-sm text-gitbase-text-secondary">{stars} ⭐</div>
-        </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <div className="text-xs text-gitbase-text-secondary">Updated {updatedAt || '—'}</div>
-        <div className="flex items-center gap-2">
-          <button onClick={onOpen} className="px-3 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary">Open</button>
-        </div>
+      <div className="mt-4 flex items-center justify-between text-xs text-gitbase-text-secondary">
+        <span className="inline-flex items-center gap-1">
+          <span>📄</span>
+          {empty ? 'no files yet' : `${entryCount ?? 0} top-level item${(entryCount ?? 0) === 1 ? '' : 's'}`}
+        </span>
+        <span className="text-gitbase-primary opacity-0 group-hover:opacity-100 transition-opacity">Open →</span>
       </div>
-    </div>
+    </button>
   );
 };
 

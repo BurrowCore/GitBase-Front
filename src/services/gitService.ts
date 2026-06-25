@@ -10,6 +10,7 @@ import type {
     DirectoryListing,
     CommitPage,
     CommitDetail,
+    BranchSummary,
 } from '../types/git';
 
 export const gitService = {
@@ -68,6 +69,18 @@ export const gitService = {
                 { params },
             );
             return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /** Live list of local branches with their head commit. */
+    async listBranches(username: string, repoName: string): Promise<BranchSummary[]> {
+        try {
+            const res = await axiosInstance.get<ApiResponse<BranchSummary[]>>(
+                `/web/gitbase/${username}/${repoName}/branches`,
+            );
+            return res.data.data ?? [];
         } catch (error) {
             throw this.handleError(error);
         }

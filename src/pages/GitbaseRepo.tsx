@@ -5,8 +5,9 @@ import { DirectoryView } from '../components/Repository/DirectoryView';
 import { FileViewer } from '../components/Repository/FileViewer';
 import { CommitList } from '../components/Repository/CommitList';
 import { CommitDetailView } from '../components/Repository/CommitDetailView';
+import { BranchSelector } from '../components/Repository/BranchSelector';
 import { gitService } from '../services/gitService';
-import type { CommitDetail, CommitPage, DirectoryListing, FileContent } from '../types/git';
+import type { BranchSummary, CommitDetail, CommitPage, DirectoryListing, FileContent } from '../types/git';
 
 type View = 'browse' | 'commits' | 'commit';
 
@@ -15,6 +16,10 @@ const GitbaseRepo: React.FC = () => {
   const { username = '', repo = '' } = useParams<{ username: string; repo: string }>();
 
   const [view, setView] = useState<View>('browse');
+
+  // Selected branch/ref. Empty = repo HEAD until branches load.
+  const [branches, setBranches] = useState<BranchSummary[]>([]);
+  const [refName, setRefName] = useState('');
 
   // Current directory path within the repo ('' = root).
   const [path, setPath] = useState('');
@@ -40,19 +45,35 @@ const GitbaseRepo: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const backendUrl = `http://localhost:8880/gitbase/${username}/${repo}.git`;
 
-  // Load the directory listing whenever the path changes.
+  // Load branches once; pick the default as the initial ref.
+  useEffect(() => {
+    if (!username || !repo) return;
+    let active = true;
+    gitService
+      .listBranches(username, repo)
+      .then(list => {
+        if (!active) return;
+        setBranches(list);
+        const def = list.find(b => b.isDefault) ?? list[0];
+        if (def) setRefName(prev => prev || def.name);
+      })
+      .catch(() => { /* empty repo or no branches — ignore */ });
+    return () => { active = false; };
+  }, [username, repo]);
+
+  // Load the directory listing whenever the path or ref changes.
   useEffect(() => {
     if (!username || !repo) return;
     let active = true;
     setListingLoading(true);
     setListingError(null);
     gitService
-      .listContents(username, repo, path)
+      .listContents(username, repo, path, refName || undefined)
       .then(data => { if (active) setListing(data); })
       .catch(err => { if (active) setListingError(err.message ?? 'Failed to load repository'); })
       .finally(() => { if (active) setListingLoading(false); });
     return () => { active = false; };
-  }, [username, repo, path]);
+  }, [username, repo, path, refName]);
 
   // Load commit history when viewing the Commits tab.
   useEffect(() => {
@@ -61,12 +82,12 @@ const GitbaseRepo: React.FC = () => {
     setCommitsLoading(true);
     setCommitsError(null);
     gitService
-      .listCommits(username, repo, { page: commitPageNum })
+      .listCommits(username, repo, { page: commitPageNum, ref: refName || undefined })
       .then(data => { if (active) setCommitPage(data); })
       .catch(err => { if (active) setCommitsError(err.message ?? 'Failed to load commits'); })
       .finally(() => { if (active) setCommitsLoading(false); });
     return () => { active = false; };
-  }, [view, username, repo, commitPageNum]);
+  }, [view, username, repo, commitPageNum, refName]);
 
   const openDir = (dirPath: string) => {
     setView('browse');
@@ -81,10 +102,19 @@ const GitbaseRepo: React.FC = () => {
     setFileLoading(true);
     setFileError(null);
     gitService
-      .getFileContent(username, repo, filePath)
+      .getFileContent(username, repo, filePath, refName || undefined)
       .then(setFile)
       .catch(err => setFileError(err.message ?? 'Failed to load file'))
       .finally(() => setFileLoading(false));
+  };
+
+  const onSelectBranch = (branch: string) => {
+    setRefName(branch);
+    setPath('');
+    setViewFile(null);
+    setFile(null);
+    setCommitPageNum(0);
+    setView('browse');
   };
 
   const openCommits = () => {
@@ -123,6 +153,8 @@ const GitbaseRepo: React.FC = () => {
   const tabClass = (active: boolean) =>
     `px-4 py-2 text-sm rounded-lg ${active ? 'bg-white/10 text-white' : 'bg-white/5 text-gitbase-text-primary'}`;
 
+  const currentBranch = refName || branches.find(b => b.isDefault)?.name || branches[0]?.name || 'HEAD';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gitbase-dark via-gitbase-secondary to-gitbase-dark">
       <DashboardNavbar />
@@ -159,9 +191,11 @@ const GitbaseRepo: React.FC = () => {
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* Toolbar: branch selector + tabs */}
         {!isEmptyRepo && (
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <BranchSelector branches={branches} current={currentBranch} onSelect={onSelectBranch} />
+            <div className="w-px h-6 bg-gitbase-border-dark/30 mx-1" />
             <button onClick={() => openDir('')} className={tabClass(view === 'browse')}>Code</button>
             <button onClick={openCommits} className={tabClass(view === 'commits' || view === 'commit')}>Commits</button>
           </div>
