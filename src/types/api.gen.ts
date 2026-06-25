@@ -275,6 +275,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/commits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paginated commit history for a ref
+         * @description Returns one page of commit history for `ref` (default branch when omitted),
+         *     optionally filtered to commits touching `path`. Read live from JGit.
+         */
+        get: operations["listCommits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/commits/{sha}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Commit detail with per-file diff
+         * @description Full commit metadata plus its diff against the first parent (or the empty tree
+         *     for a root commit). Binary files report `binary=true` with a null patch.
+         */
+        get: operations["getCommitDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/gitbase/{username}/{repoName}.git/info/refs": {
         parameters: {
             query?: never;
@@ -516,8 +558,43 @@ export interface components {
              */
             size?: number;
             binary?: boolean;
-            /** @description UTF-8 text content; null when the file is binary */
             content?: string | null;
+        };
+        /** @description One page of commit history. Mirrors backend CommitPageDto. */
+        CommitPage: {
+            ref?: string;
+            page?: number;
+            size?: number;
+            hasNext?: boolean;
+            commits?: components["schemas"]["CommitSummary"][];
+        };
+        /** @description A single file's change within a diff. Mirrors backend FileDiffDto. */
+        FileDiff: {
+            path?: string;
+            oldPath?: string | null;
+            /** @enum {string} */
+            changeType?: "ADD" | "MODIFY" | "DELETE" | "RENAME" | "COPY";
+            additions?: number;
+            deletions?: number;
+            binary?: boolean;
+            /** @description Unified diff text; null when binary */
+            patch?: string | null;
+        };
+        /** @description Full commit metadata plus per-file diff. Mirrors backend CommitDetailDto. */
+        CommitDetail: {
+            sha?: string;
+            shortSha?: string;
+            /** @description Full commit message */
+            message?: string;
+            authorName?: string | null;
+            authorEmail?: string | null;
+            /** Format: int64 */
+            date?: number;
+            parents?: string[];
+            additions?: number;
+            deletions?: number;
+            /** @description UTF-8 text content; null when the file is binary */
+            files?: components["schemas"]["FileDiff"][];
         };
         ActivityResponse: {
             /** Format: int64 */
@@ -677,6 +754,24 @@ export interface components {
             httpStatus?: string;
             error?: string | null;
             data?: components["schemas"]["DirectoryListing"];
+        };
+        ApiResponseCommitPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["CommitPage"];
+        };
+        ApiResponseCommitDetail: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["CommitDetail"];
         };
         ApiResponseActivityList: {
             /** Format: date-time */
@@ -1153,6 +1248,79 @@ export interface operations {
                 };
             };
             /** @description Repository or path not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listCommits: {
+        parameters: {
+            query?: {
+                /** @description Branch, tag, or commit SHA. Defaults to the repository's HEAD. */
+                ref?: string;
+                /** @description Restrict history to commits that modified this path. */
+                path?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Commit page returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCommitPage"];
+                };
+            };
+            /** @description Repository not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    getCommitDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Commit SHA (full or abbreviated) or any resolvable ref. */
+                sha: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Commit detail returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCommitDetail"];
+                };
+            };
+            /** @description Repository or commit not found */
             404: {
                 headers: {
                     [name: string]: unknown;

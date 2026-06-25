@@ -88,3 +88,37 @@ export interface DirectoryListing {
     latestCommit: CommitSummary | null;
     entries: DirEntry[];
 }
+
+/** One page of commit history. Mirrors backend CommitPageDto. */
+export interface CommitPage {
+    ref: string;
+    page: number;
+    size: number;
+    hasNext: boolean;
+    commits: CommitSummary[];
+}
+
+/** A single file's change within a commit diff. Mirrors backend FileDiffDto. */
+export interface FileDiff {
+    path: string;
+    oldPath: string | null;
+    changeType: 'ADD' | 'MODIFY' | 'DELETE' | 'RENAME' | 'COPY';
+    additions: number;
+    deletions: number;
+    binary: boolean;
+    patch: string | null; // null when binary
+}
+
+/** Full commit metadata + per-file diff. Mirrors backend CommitDetailDto. */
+export interface CommitDetail {
+    sha: string;
+    shortSha: string;
+    message: string;       // full message
+    authorName: string | null;
+    authorEmail: string | null;
+    date: number;          // epoch millis
+    parents: string[];
+    additions: number;
+    deletions: number;
+    files: FileDiff[];
+}

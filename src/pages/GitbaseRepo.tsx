@@ -3,12 +3,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { DirectoryView } from '../components/Repository/DirectoryView';
 import { FileViewer } from '../components/Repository/FileViewer';
+import { CommitList } from '../components/Repository/CommitList';
+import { CommitDetailView } from '../components/Repository/CommitDetailView';
 import { gitService } from '../services/gitService';
-import type { DirectoryListing, FileContent } from '../types/git';
+import type { CommitDetail, CommitPage, DirectoryListing, FileContent } from '../types/git';
+
+type View = 'browse' | 'commits' | 'commit';
 
 const GitbaseRepo: React.FC = () => {
   const navigate = useNavigate();
   const { username = '', repo = '' } = useParams<{ username: string; repo: string }>();
+
+  const [view, setView] = useState<View>('browse');
 
   // Current directory path within the repo ('' = root).
   const [path, setPath] = useState('');
@@ -21,6 +27,15 @@ const GitbaseRepo: React.FC = () => {
   const [file, setFile] = useState<FileContent | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+
+  // Commit history + detail.
+  const [commitPage, setCommitPage] = useState<CommitPage | null>(null);
+  const [commitPageNum, setCommitPageNum] = useState(0);
+  const [commitsLoading, setCommitsLoading] = useState(false);
+  const [commitsError, setCommitsError] = useState<string | null>(null);
+  const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const [copied, setCopied] = useState(false);
   const backendUrl = `http://localhost:8880/gitbase/${username}/${repo}.git`;
@@ -39,13 +54,29 @@ const GitbaseRepo: React.FC = () => {
     return () => { active = false; };
   }, [username, repo, path]);
 
+  // Load commit history when viewing the Commits tab.
+  useEffect(() => {
+    if (view !== 'commits' || !username || !repo) return;
+    let active = true;
+    setCommitsLoading(true);
+    setCommitsError(null);
+    gitService
+      .listCommits(username, repo, { page: commitPageNum })
+      .then(data => { if (active) setCommitPage(data); })
+      .catch(err => { if (active) setCommitsError(err.message ?? 'Failed to load commits'); })
+      .finally(() => { if (active) setCommitsLoading(false); });
+    return () => { active = false; };
+  }, [view, username, repo, commitPageNum]);
+
   const openDir = (dirPath: string) => {
+    setView('browse');
     setViewFile(null);
     setFile(null);
     setPath(dirPath);
   };
 
   const openFile = (filePath: string) => {
+    setView('browse');
     setViewFile(filePath);
     setFileLoading(true);
     setFileError(null);
@@ -54,6 +85,23 @@ const GitbaseRepo: React.FC = () => {
       .then(setFile)
       .catch(err => setFileError(err.message ?? 'Failed to load file'))
       .finally(() => setFileLoading(false));
+  };
+
+  const openCommits = () => {
+    setView('commits');
+    setCommitPageNum(0);
+  };
+
+  const openCommit = (sha: string) => {
+    setView('commit');
+    setDetailLoading(true);
+    setDetailError(null);
+    setCommitDetail(null);
+    gitService
+      .getCommitDetail(username, repo, sha)
+      .then(setCommitDetail)
+      .catch(err => setDetailError(err.message ?? 'Failed to load commit'))
+      .finally(() => setDetailLoading(false));
   };
 
   const handleCopy = async () => {
@@ -71,6 +119,9 @@ const GitbaseRepo: React.FC = () => {
   // Breadcrumb segments: based on the file path when viewing a file, else the directory path.
   const crumbPath = viewFile ?? path;
   const segments = crumbPath ? crumbPath.split('/') : [];
+
+  const tabClass = (active: boolean) =>
+    `px-4 py-2 text-sm rounded-lg ${active ? 'bg-white/10 text-white' : 'bg-white/5 text-gitbase-text-primary'}`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gitbase-dark via-gitbase-secondary to-gitbase-dark">
@@ -96,7 +147,7 @@ const GitbaseRepo: React.FC = () => {
         </div>
 
         {/* Clone URL bar */}
-        <div className="rounded bg-gitbase-surface-dark/80 p-3 border border-gitbase-border-dark/30 flex items-center justify-between mb-6">
+        <div className="rounded bg-gitbase-surface-dark/80 p-3 border border-gitbase-border-dark/30 flex items-center justify-between mb-4">
           <div className="text-sm text-gitbase-text-primary break-all font-mono">
             {backendUrl.replace(/^https?:\/\//, '')}
           </div>
@@ -108,57 +159,94 @@ const GitbaseRepo: React.FC = () => {
           </button>
         </div>
 
-        {/* Breadcrumb */}
-        {!isEmptyRepo && (segments.length > 0 || viewFile) && (
-          <div className="flex items-center gap-1 text-sm mb-3 flex-wrap">
-            <button onClick={() => openDir('')} className="text-gitbase-primary hover:underline">{repo}</button>
-            {segments.map((seg, i) => {
-              const cumulative = segments.slice(0, i + 1).join('/');
-              const isLast = i === segments.length - 1;
-              const isFileLeaf = !!viewFile && isLast;
-              return (
-                <span key={cumulative} className="flex items-center gap-1">
-                  <span className="text-gitbase-text-secondary">/</span>
-                  {isFileLeaf ? (
-                    <span className="text-gitbase-text-primary">{seg}</span>
-                  ) : (
-                    <button onClick={() => openDir(cumulative)} className="text-gitbase-primary hover:underline">
-                      {seg}
-                    </button>
-                  )}
-                </span>
-              );
-            })}
+        {/* Tabs */}
+        {!isEmptyRepo && (
+          <div className="flex items-center gap-2 mb-4">
+            <button onClick={() => openDir('')} className={tabClass(view === 'browse')}>Code</button>
+            <button onClick={openCommits} className={tabClass(view === 'commits' || view === 'commit')}>Commits</button>
           </div>
         )}
 
-        {listingLoading && <div className="text-gitbase-text-secondary">Loading repository…</div>}
-        {listingError && <div className="text-red-400">{listingError}</div>}
+        {/* ── Browse view ── */}
+        {view === 'browse' && (
+          <>
+            {!isEmptyRepo && (segments.length > 0 || viewFile) && (
+              <div className="flex items-center gap-1 text-sm mb-3 flex-wrap">
+                <button onClick={() => openDir('')} className="text-gitbase-primary hover:underline">{repo}</button>
+                {segments.map((seg, i) => {
+                  const cumulative = segments.slice(0, i + 1).join('/');
+                  const isLast = i === segments.length - 1;
+                  const isFileLeaf = !!viewFile && isLast;
+                  return (
+                    <span key={cumulative} className="flex items-center gap-1">
+                      <span className="text-gitbase-text-secondary">/</span>
+                      {isFileLeaf ? (
+                        <span className="text-gitbase-text-primary">{seg}</span>
+                      ) : (
+                        <button onClick={() => openDir(cumulative)} className="text-gitbase-primary hover:underline">
+                          {seg}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
-        {/* Empty repo → quick setup commands */}
-        {!listingLoading && !listingError && isEmptyRepo && (
-          <div className="rounded bg-gitbase-surface-dark border border-gitbase-border-dark/30 p-4">
-            <div className="text-white font-medium mb-3">Create a new repository on the command line</div>
-            <pre className="rounded bg-gitbase-surface-dark/80 p-4 border border-gitbase-border-dark/20 whitespace-pre-wrap text-sm text-white">{`echo "# ${repo}" >> README.md
+            {listingLoading && <div className="text-gitbase-text-secondary">Loading repository…</div>}
+            {listingError && <div className="text-red-400">{listingError}</div>}
+
+            {/* Empty repo → quick setup commands */}
+            {!listingLoading && !listingError && isEmptyRepo && (
+              <div className="rounded bg-gitbase-surface-dark border border-gitbase-border-dark/30 p-4">
+                <div className="text-white font-medium mb-3">Create a new repository on the command line</div>
+                <pre className="rounded bg-gitbase-surface-dark/80 p-4 border border-gitbase-border-dark/20 whitespace-pre-wrap text-sm text-white">{`echo "# ${repo}" >> README.md
 git init
 git add README.md
 git commit -m "first commit"
 git branch -M main
 git remote add origin ${backendUrl}
 git push -u origin main`}</pre>
-          </div>
+              </div>
+            )}
+
+            {/* File view */}
+            {!isEmptyRepo && viewFile && (
+              <div className="rounded-lg border border-gitbase-border-dark/30 bg-gitbase-surface-dark/60 overflow-auto max-h-[75vh]">
+                <FileViewer file={file} loading={fileLoading} error={fileError} />
+              </div>
+            )}
+
+            {/* Directory view */}
+            {!isEmptyRepo && !viewFile && !listingLoading && !listingError && listing && (
+              <DirectoryView listing={listing} onOpenDir={openDir} onOpenFile={openFile} />
+            )}
+          </>
         )}
 
-        {/* File view */}
-        {!isEmptyRepo && viewFile && (
-          <div className="rounded-lg border border-gitbase-border-dark/30 bg-gitbase-surface-dark/60 overflow-auto max-h-[75vh]">
-            <FileViewer file={file} loading={fileLoading} error={fileError} />
-          </div>
+        {/* ── Commit history view ── */}
+        {view === 'commits' && (
+          <CommitList
+            page={commitPage}
+            loading={commitsLoading}
+            error={commitsError}
+            onOpenCommit={openCommit}
+            onPrev={() => setCommitPageNum(n => Math.max(0, n - 1))}
+            onNext={() => setCommitPageNum(n => n + 1)}
+          />
         )}
 
-        {/* Directory view */}
-        {!isEmptyRepo && !viewFile && !listingLoading && !listingError && listing && (
-          <DirectoryView listing={listing} onOpenDir={openDir} onOpenFile={openFile} />
+        {/* ── Commit detail view ── */}
+        {view === 'commit' && (
+          <>
+            <button
+              onClick={openCommits}
+              className="mb-3 px-3 py-1 text-xs bg-white/5 rounded text-gitbase-text-primary"
+            >
+              ← Back to commits
+            </button>
+            <CommitDetailView detail={commitDetail} loading={detailLoading} error={detailError} />
+          </>
         )}
       </main>
     </div>

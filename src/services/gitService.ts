@@ -8,6 +8,8 @@ import type {
     FileTreeNode,
     FileContent,
     DirectoryListing,
+    CommitPage,
+    CommitDetail,
 } from '../types/git';
 
 export const gitService = {
@@ -64,6 +66,40 @@ export const gitService = {
             const res = await axiosInstance.get<ApiResponse<DirectoryListing>>(
                 `/web/gitbase/${username}/${repoName}/contents`,
                 { params },
+            );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /** Paginated commit history for a ref (optionally filtered to a path). */
+    async listCommits(
+        username: string,
+        repoName: string,
+        opts: { ref?: string; path?: string; page?: number; size?: number } = {},
+    ): Promise<CommitPage> {
+        try {
+            const params: Record<string, string | number> = {};
+            if (opts.ref) params.ref = opts.ref;
+            if (opts.path) params.path = opts.path;
+            if (opts.page != null) params.page = opts.page;
+            if (opts.size != null) params.size = opts.size;
+            const res = await axiosInstance.get<ApiResponse<CommitPage>>(
+                `/web/gitbase/${username}/${repoName}/commits`,
+                { params },
+            );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /** Full metadata + per-file diff for a single commit. */
+    async getCommitDetail(username: string, repoName: string, sha: string): Promise<CommitDetail> {
+        try {
+            const res = await axiosInstance.get<ApiResponse<CommitDetail>>(
+                `/web/gitbase/${username}/${repoName}/commits/${sha}`,
             );
             return res.data.data;
         } catch (error) {
