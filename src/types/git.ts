@@ -117,6 +117,20 @@ export interface FileDiff {
     patch: string | null; // null when binary
 }
 
+/** Three-way comparison of two refs (pull-request basis). Mirrors backend CompareDto. */
+export interface Compare {
+    base: string;
+    head: string;
+    mergeBase: string | null;
+    aheadBy: number;
+    behindBy: number;
+    commits: CommitSummary[];
+    totalAdditions: number;
+    totalDeletions: number;
+    truncated: boolean;
+    files: FileDiff[];
+}
+
 /** Full commit metadata + per-file diff. Mirrors backend CommitDetailDto. */
 export interface CommitDetail {
     sha: string;

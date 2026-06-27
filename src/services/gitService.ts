@@ -11,6 +11,7 @@ import type {
     CommitPage,
     CommitDetail,
     BranchSummary,
+    Compare,
 } from '../types/git';
 
 export const gitService = {
@@ -67,6 +68,19 @@ export const gitService = {
             const res = await axiosInstance.get<ApiResponse<DirectoryListing>>(
                 `/web/gitbase/${username}/${repoName}/contents`,
                 { params },
+            );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /** Three-way comparison of two refs (ahead/behind, added commits, diff). */
+    async compare(username: string, repoName: string, base: string, head: string): Promise<Compare> {
+        try {
+            const res = await axiosInstance.get<ApiResponse<Compare>>(
+                `/web/gitbase/${username}/${repoName}/compare`,
+                { params: { base, head } },
             );
             return res.data.data;
         } catch (error) {

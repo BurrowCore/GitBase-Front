@@ -295,6 +295,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Three-way comparison of two refs (pull-request basis)
+         * @description Compares `base` and `head`. Returns ahead/behind counts, the commits `head` adds over
+         *     `base`, and the diff from their merge base to `head` (three-way). Large diffs are truncated.
+         */
+        get: operations["compareRefs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/web/gitbase/{username}/{repoName}/commits": {
         parameters: {
             query?: never;
@@ -587,6 +608,19 @@ export interface components {
             shortSha?: string;
             isDefault?: boolean;
         };
+        /** @description Three-way comparison of two refs. Mirrors backend CompareDto. */
+        Compare: {
+            base?: string;
+            head?: string;
+            mergeBase?: string | null;
+            aheadBy?: number;
+            behindBy?: number;
+            commits?: components["schemas"]["CommitSummary"][];
+            totalAdditions?: number;
+            totalDeletions?: number;
+            truncated?: boolean;
+            files?: components["schemas"]["FileDiff"][];
+        };
         /** @description One page of commit history. Mirrors backend CommitPageDto. */
         CommitPage: {
             ref?: string;
@@ -790,6 +824,15 @@ export interface components {
             httpStatus?: string;
             error?: string | null;
             data?: components["schemas"]["BranchSummary"][];
+        };
+        ApiResponseCompare: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Compare"];
         };
         ApiResponseCommitPage: {
             /** Format: date-time */
@@ -1316,6 +1359,43 @@ export interface operations {
                 };
             };
             /** @description Repository not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    compareRefs: {
+        parameters: {
+            query: {
+                /** @description Base (target) ref — branch, tag, or SHA. */
+                base: string;
+                /** @description Head (source) ref — branch, tag, or SHA. */
+                head: string;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comparison computed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCompare"];
+                };
+            };
+            /** @description Repository or ref not found */
             404: {
                 headers: {
                     [name: string]: unknown;
