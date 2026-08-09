@@ -160,6 +160,38 @@ export const gitService = {
         }
     },
 
+    /**
+     * Fetch a file's raw bytes as a Blob (image preview, download).
+     *
+     * Goes through axios rather than pointing an `<img src>` straight at the endpoint: auth is a
+     * cross-origin HttpOnly cookie, which a plain image request would not send, and this way the
+     * 401-refresh interceptor still applies.
+     */
+    async getRawBlob(username: string, repoName: string, path: string, ref?: string): Promise<Blob> {
+        try {
+            const res = await axiosInstance.get<Blob>(
+                `/web/gitbase/${username}/${repoName}/raw`,
+                { params: ref ? { path, ref } : { path }, responseType: 'blob' },
+            );
+            return res.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /** Download a file to disk via a temporary object URL. */
+    async downloadFile(username: string, repoName: string, path: string, ref?: string): Promise<void> {
+        const blob = await this.getRawBlob(username, repoName, path, ref);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = path.split('/').pop() ?? 'download';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    },
+
     /** Delete a repository the current user owns. */
     async deleteRepository(username: string, repoName: string): Promise<void> {
         try {

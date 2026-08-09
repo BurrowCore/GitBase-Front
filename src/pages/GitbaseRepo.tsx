@@ -4,6 +4,7 @@ import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { DirectoryView } from '../components/Repository/DirectoryView';
 import { CodeViewer } from '../components/Repository/CodeViewer';
 import { FileExplorer } from '../components/Repository/FileExplorer';
+import { ReadmePanel } from '../components/Repository/ReadmePanel';
 import { CommitList } from '../components/Repository/CommitList';
 import { CommitDetailView } from '../components/Repository/CommitDetailView';
 import { BranchSelector } from '../components/Repository/BranchSelector';
@@ -33,6 +34,8 @@ const GitbaseRepo: React.FC = () => {
 
   const [commitPage, setCommitPage] = useState<CommitPage | null>(null);
   const [commitPageNum, setCommitPageNum] = useState(0);
+  // When set, the Commits tab shows history for just this file.
+  const [historyPath, setHistoryPath] = useState<string | null>(null);
   const [commitsLoading, setCommitsLoading] = useState(false);
   const [commitsError, setCommitsError] = useState<string | null>(null);
   const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null);
@@ -76,12 +79,16 @@ const GitbaseRepo: React.FC = () => {
     setCommitsLoading(true);
     setCommitsError(null);
     gitService
-      .listCommits(username, repo, { page: commitPageNum, ref: refName || undefined })
+      .listCommits(username, repo, {
+        page: commitPageNum,
+        ref: refName || undefined,
+        path: historyPath ?? undefined,
+      })
       .then(data => { if (active) setCommitPage(data); })
       .catch(err => { if (active) setCommitsError(err.message ?? 'Failed to load commits'); })
       .finally(() => { if (active) setCommitsLoading(false); });
     return () => { active = false; };
-  }, [view, username, repo, commitPageNum, refName]);
+  }, [view, username, repo, commitPageNum, refName, historyPath]);
 
   const openDir = (dirPath: string) => {
     setView('browse');
@@ -91,6 +98,10 @@ const GitbaseRepo: React.FC = () => {
   };
 
   const openFile = (filePath: string) => {
+    // Drop any #L<n> anchor from the previously viewed file so it doesn't follow us over.
+    if (filePath !== viewFile && window.location.hash) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
     setView('browse');
     setViewFile(filePath);
     setFileLoading(true);
@@ -112,6 +123,14 @@ const GitbaseRepo: React.FC = () => {
   };
 
   const openCommits = () => {
+    setView('commits');
+    setCommitPageNum(0);
+    setHistoryPath(null);
+  };
+
+  /** Commits touching a single file ("History" in the blob header). */
+  const openFileHistory = (filePath: string) => {
+    setHistoryPath(filePath);
     setView('commits');
     setCommitPageNum(0);
   };
@@ -246,10 +265,26 @@ git push -u origin main`}</pre>
                   {listingError && !viewFile && <div className="text-red-400">{listingError}</div>}
 
                   {viewFile ? (
-                    <CodeViewer file={file} loading={fileLoading} error={fileError} />
+                    <CodeViewer
+                      file={file}
+                      loading={fileLoading}
+                      error={fileError}
+                      username={username}
+                      repo={repo}
+                      refName={refName || undefined}
+                      onViewHistory={openFileHistory}
+                    />
                   ) : (
                     !listingLoading && !listingError && listing && (
-                      <DirectoryView listing={listing} onOpenDir={openDir} onOpenFile={openFile} />
+                      <>
+                        <DirectoryView listing={listing} onOpenDir={openDir} onOpenFile={openFile} />
+                        <ReadmePanel
+                          username={username}
+                          repo={repo}
+                          refName={refName || undefined}
+                          entries={listing.entries}
+                        />
+                      </>
                     )
                   )}
                 </div>
@@ -260,14 +295,23 @@ git push -u origin main`}</pre>
 
         {/* ── Commit history view ── */}
         {view === 'commits' && (
-          <CommitList
-            page={commitPage}
-            loading={commitsLoading}
-            error={commitsError}
-            onOpenCommit={openCommit}
-            onPrev={() => setCommitPageNum(n => Math.max(0, n - 1))}
-            onNext={() => setCommitPageNum(n => n + 1)}
-          />
+          <>
+            {historyPath && (
+              <div className="flex items-center gap-2 mb-3 text-sm flex-wrap">
+                <span className="text-gitbase-text-secondary">History for</span>
+                <code className="font-mono text-gitbase-text-primary bg-white/5 rounded px-2 py-0.5">{historyPath}</code>
+                <button onClick={openCommits} className="text-gitbase-primary hover:underline">Clear filter</button>
+              </div>
+            )}
+            <CommitList
+              page={commitPage}
+              loading={commitsLoading}
+              error={commitsError}
+              onOpenCommit={openCommit}
+              onPrev={() => setCommitPageNum(n => Math.max(0, n - 1))}
+              onNext={() => setCommitPageNum(n => n + 1)}
+            />
+          </>
         )}
 
         {/* ── Commit detail view ── */}

@@ -253,6 +253,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream a file's raw bytes (image preview / download)
+         * @description Streams the raw bytes of one blob. **Not** wrapped in the `ApiResponseEntity` envelope —
+         *     this is a binary transport endpoint consumed directly by `<img src>` and download links.
+         *
+         *     The `Content-Type` is chosen by a server-side allowlist, never from the file itself:
+         *     raster images (`png/jpg/jpeg/gif/webp/avif/bmp/ico`) are served inline, other text is
+         *     served as `text/plain; charset=utf-8`, and everything else — including SVG, which can
+         *     carry script — is forced to `application/octet-stream` with
+         *     `Content-Disposition: attachment`. `X-Content-Type-Options: nosniff` is always set.
+         *
+         *     Files larger than 25 MB are rejected with 400.
+         */
+        get: operations["getRawFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/web/gitbase/{username}/{repoName}/contents": {
         parameters: {
             query?: never;
@@ -1287,6 +1316,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseFileContent"];
+                };
+            };
+            /** @description Repository or file not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    getRawFile: {
+        parameters: {
+            query: {
+                /** @description File path within the repository, e.g. docs/logo.png */
+                path: string;
+                /** @description Branch, tag, or commit SHA. Defaults to the repository's HEAD. */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Raw file bytes */
+            200: {
+                headers: {
+                    /** @description `inline` for images and text, `attachment` otherwise */
+                    "Content-Disposition"?: string;
+                    /** @description Always `nosniff` */
+                    "X-Content-Type-Options"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                    "text/plain": string;
+                };
+            };
+            /** @description File exceeds the 25 MB raw-serving limit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
                 };
             };
             /** @description Repository or file not found */
