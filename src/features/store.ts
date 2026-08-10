@@ -2,12 +2,14 @@ import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './auth/authSlice';
 import activityReducer from './activity/activitySlice';
 import reposReducer from './repos/reposSlice';
+import pullRequestReducer from './pullRequests/pullRequestSlice';
 import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
 
 const rootReducer = {
   auth: authReducer,
   activity: activityReducer,
   repos: reposReducer,
+  pullRequests: pullRequestReducer,
 }
 
 export const store = configureStore({

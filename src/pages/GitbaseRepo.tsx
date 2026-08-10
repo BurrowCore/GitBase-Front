@@ -203,6 +203,12 @@ const GitbaseRepo: React.FC = () => {
           <div className="flex items-center gap-1 border-b border-gitbase-border-dark/30 mb-4">
             <button onClick={() => openDir('')} className={tab(view === 'browse')}>Code</button>
             <button onClick={openCommits} className={tab(view === 'commits' || view === 'commit')}>Commits</button>
+            <button
+              onClick={() => navigate(`/gitbase/${username}/${repo}/pulls`)}
+              className={tab(false)}
+            >
+              Pull requests
+            </button>
           </div>
         )}
 

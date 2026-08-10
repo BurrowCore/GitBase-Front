@@ -504,10 +504,322 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List pull requests */
+        get: operations["listPullRequests"];
+        put?: never;
+        /**
+         * Open a pull request
+         * @description Opens a pull request from `sourceBranch` into `targetBranch` within the same repository.
+         *     Both branches must exist and differ. A second open pull request for the same
+         *     source→target pair is rejected with 409.
+         */
+        post: operations["createPullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a pull request */
+        get: operations["getPullRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls/{number}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Three-way diff for a pull request
+         * @description Diff of `sourceBranch` against its merge base with `targetBranch`, so changes already
+         *     present on the target are excluded. Truncated past 500 files or 50,000 lines.
+         */
+        get: operations["getPullRequestDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls/{number}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a pull request
+         * @description Performs a server-side three-way merge in memory (repositories are bare) and moves the
+         *     target branch with a compare-and-swap ref update. Requires write access.
+         */
+        post: operations["mergePullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls/{number}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a pull request without merging */
+        post: operations["closePullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls/{number}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a closed pull request
+         * @description Only a CLOSED pull request can be reopened, and only if its source branch still exists.
+         */
+        post: operations["reopenPullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls/{number}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List conversation comments */
+        get: operations["listPullRequestComments"];
+        put?: never;
+        /** Add a comment to the conversation */
+        post: operations["addPullRequestComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        UserSummary: {
+            username?: string;
+            fullName?: string | null;
+            avatarUrl?: string | null;
+        };
+        CreatePullRequest: {
+            title: string;
+            description?: string | null;
+            /** @example feature/auth */
+            sourceBranch: string;
+            /** @example main */
+            targetBranch: string;
+        };
+        PullRequest: {
+            /** Format: int64 */
+            id?: number;
+            number?: number;
+            title?: string;
+            description?: string | null;
+            /** @enum {string} */
+            state?: "OPEN" | "CLOSED" | "MERGED";
+            sourceBranch?: string;
+            targetBranch?: string;
+            /** @description Source tip when the PR was opened */
+            headSha?: string | null;
+            /** @description Target tip when the PR was opened */
+            baseSha?: string | null;
+            author?: components["schemas"]["UserSummary"];
+            mergedBy?: components["schemas"]["UserSummary"] | null;
+            mergeCommitSha?: string | null;
+            /** @description Live count; 0 for non-OPEN pull requests */
+            commitsCount?: number;
+            /** @description Live count; 0 for non-OPEN pull requests */
+            changedFilesCount?: number;
+            /** Format: int64 */
+            commentsCount?: number;
+            /**
+             * Format: int64
+             * @description epoch millis
+             */
+            createdAt?: number | null;
+            /** Format: int64 */
+            updatedAt?: number | null;
+            /** Format: int64 */
+            mergedAt?: number | null;
+            /** Format: int64 */
+            closedAt?: number | null;
+        };
+        /** @description List row. Excludes commit/diff counts, which would need a RevWalk per row. */
+        PullRequestSummary: {
+            /** Format: int64 */
+            id?: number;
+            number?: number;
+            title?: string;
+            /** @enum {string} */
+            state?: "OPEN" | "CLOSED" | "MERGED";
+            sourceBranch?: string;
+            targetBranch?: string;
+            author?: components["schemas"]["UserSummary"];
+            /** Format: int64 */
+            commentsCount?: number;
+            /** Format: int64 */
+            createdAt?: number | null;
+            /** Format: int64 */
+            updatedAt?: number | null;
+        };
+        PullRequestPage: {
+            pullRequests?: components["schemas"]["PullRequestSummary"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            totalPages?: number;
+            hasNext?: boolean;
+            /** Format: int64 */
+            openCount?: number;
+            /**
+             * Format: int64
+             * @description CLOSED + MERGED
+             */
+            closedCount?: number;
+        };
+        MergePullRequest: {
+            /**
+             * @description Phase 2 supports the merge-commit strategy only.
+             * @default merge
+             * @enum {string}
+             */
+            mergeMethod: "merge";
+            commitMessage?: string | null;
+        };
+        MergeResult: {
+            merged?: boolean;
+            sha?: string;
+            message?: string;
+        };
+        CreateComment: {
+            body: string;
+        };
+        Comment: {
+            /** Format: int64 */
+            id?: number;
+            author?: components["schemas"]["UserSummary"];
+            body?: string;
+            /** Format: int64 */
+            createdAt?: number | null;
+            /** Format: int64 */
+            updatedAt?: number | null;
+        };
+        CommentPage: {
+            comments?: components["schemas"]["Comment"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            hasNext?: boolean;
+        };
+        ApiResponsePullRequest: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["PullRequest"];
+        };
+        ApiResponsePullRequestPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["PullRequestPage"];
+        };
+        ApiResponseMergeResult: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["MergeResult"];
+        };
+        ApiResponseComment: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Comment"];
+        };
+        ApiResponseCommentPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["CommentPage"];
+        };
+        /** @description 409 envelope. `data` carries conflicting file paths when the conflict came from a merge. */
+        ApiResponseConflict: {
+            /** Format: date-time */
+            timestamp?: string;
+            /** @example false */
+            success?: boolean;
+            message?: string;
+            /** @example CONFLICT */
+            httpStatus?: string;
+            /** @example CONFLICT */
+            error?: string;
+            data?: string[];
+        };
         RegisterRequest: {
             /** Format: email */
             email: string;
@@ -913,6 +1225,8 @@ export interface components {
     parameters: {
         Username: string;
         RepoName: string;
+        /** @description Per-repository pull request number (#1, */
+        PullNumber: number;
     };
     requestBodies: never;
     headers: never;
@@ -1748,6 +2062,381 @@ export interface operations {
             };
             /** @description Token not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listPullRequests: {
+        parameters: {
+            query?: {
+                state?: "OPEN" | "CLOSED" | "MERGED" | "ALL";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pull requests retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePullRequestPage"];
+                };
+            };
+            /** @description Repository not found (or private and not visible to the caller) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    createPullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePullRequest"];
+            };
+        };
+        responses: {
+            /** @description Pull request created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePullRequest"];
+                };
+            };
+            /** @description Validation error, or source and target are the same branch */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Repository or branch not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description An open pull request already exists for this source→target pair */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConflict"];
+                };
+            };
+        };
+    };
+    getPullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository pull request number (#1, */
+                number: components["parameters"]["PullNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pull request retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePullRequest"];
+                };
+            };
+            /** @description Pull request not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    getPullRequestDiff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository pull request number (#1, */
+                number: components["parameters"]["PullNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Diff computed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCompare"];
+                };
+            };
+            /** @description Pull request not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    mergePullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository pull request number (#1, */
+                number: components["parameters"]["PullNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MergePullRequest"];
+            };
+        };
+        responses: {
+            /** @description Pull request merged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMergeResult"];
+                };
+            };
+            /** @description Caller lacks write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Pull request or branch not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Pull request is not OPEN */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Merge conflict; `data` lists the conflicting paths */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConflict"];
+                };
+            };
+        };
+    };
+    closePullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository pull request number (#1, */
+                number: components["parameters"]["PullNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pull request closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePullRequest"];
+                };
+            };
+            /** @description Caller is neither the author nor the repository owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Pull request is not OPEN */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    reopenPullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository pull request number (#1, */
+                number: components["parameters"]["PullNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pull request reopened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePullRequest"];
+                };
+            };
+            /** @description Caller is neither the author nor the repository owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Pull request is not CLOSED, or its source branch is gone */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listPullRequestComments: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository pull request number (#1, */
+                number: components["parameters"]["PullNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comments retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCommentPage"];
+                };
+            };
+        };
+    };
+    addPullRequestComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository pull request number (#1, */
+                number: components["parameters"]["PullNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateComment"];
+            };
+        };
+        responses: {
+            /** @description Comment added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseComment"];
+                };
+            };
+            /** @description Validation error */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
