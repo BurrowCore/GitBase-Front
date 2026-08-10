@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { CSRF_HEADER, getCsrfToken, needsCsrfToken } from '../utils/csrf';
 
 // Global state for token refresh management
 let isRefreshing = false;
@@ -44,6 +45,26 @@ const axiosInstance = axios.create({
         'Content-Type': 'application/json',
     }
 });
+
+/**
+ * Attaches the CSRF token to state-changing requests.
+ *
+ * Axios has built-in XSRF support, but since v1.6 it only fires for same-origin requests — the SPA
+ * (:5173) and the API (:8880) are different origins, so it never triggers here and every POST/PUT/
+ * PATCH/DELETE was being rejected with a bare 403. Setting the header explicitly fixes that.
+ */
+const attachCsrfToken = (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+    if (needsCsrfToken(config.method)) {
+        const token = getCsrfToken();
+        if (token) {
+            config.headers.set(CSRF_HEADER, token);
+        }
+    }
+    return config;
+};
+
+axiosInstance.interceptors.request.use(attachCsrfToken);
+authAxiosInstance.interceptors.request.use(attachCsrfToken);
 
 // Helper function to check if request is auth-related
 const isAuthRequest = (url: string): boolean => {
