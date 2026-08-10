@@ -12,7 +12,16 @@ export default {
           secondary: '#232432',
           'secondary-light': '#f8fafc',
           border: '#2f3042',
+          'border-dark': '#2f3042',
           'border-light': '#e2e8f0',
+          // Panel/'card' background sitting above the page gradient. Without this, form controls
+          // (input/textarea/select) fell back to the browser's white default and their light text
+          // became invisible.
+          surface: {
+            dark: '#232432',
+            light: '#ffffff',
+          },
+          danger: '#FC8181',
           primary: '#7C5CF3',
           'primary-light': '#a78bfa',
           accent: '#00D4FF',

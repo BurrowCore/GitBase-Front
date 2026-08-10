@@ -527,6 +527,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/pulls/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recently-pushed branches with no open pull request
+         * @description Powers the GitHub-style "<branch> had recent pushes … Compare & pull request" banner.
+         *     Read live from git refs, so a branch pushed from the CLI appears on the next page load
+         *     with no sync step. Excludes the default branch and any branch that is already the source
+         *     of an open pull request. Limited to branches pushed in the last 7 days, 5 results max.
+         */
+        get: operations["getPullSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/web/gitbase/{username}/{repoName}/pulls/{number}": {
         parameters: {
             query?: never;
@@ -761,6 +784,28 @@ export interface components {
             /** Format: int64 */
             totalElements?: number;
             hasNext?: boolean;
+        };
+        /** @description A recently-pushed branch that has no open pull request yet. */
+        PullSuggestion: {
+            branch?: string;
+            commitSha?: string;
+            shortSha?: string;
+            lastCommitMessage?: string | null;
+            authorName?: string | null;
+            /**
+             * Format: int64
+             * @description epoch millis
+             */
+            lastCommitAt?: number;
+        };
+        ApiResponsePullSuggestions: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["PullSuggestion"][];
         };
         ApiResponsePullRequest: {
             /** Format: date-time */
@@ -2157,6 +2202,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseConflict"];
+                };
+            };
+        };
+    };
+    getPullSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggestions retrieved (possibly an empty list) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePullSuggestions"];
                 };
             };
         };

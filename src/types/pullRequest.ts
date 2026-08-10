@@ -94,6 +94,16 @@ export interface CommentPage {
     hasNext: boolean;
 }
 
+/** A recently-pushed branch with no open pull request (drives the "Compare & pull request" banner). */
+export interface PullSuggestion {
+    branch: string;
+    commitSha: string;
+    shortSha: string;
+    lastCommitMessage: string | null;
+    authorName: string | null;
+    lastCommitAt: number; // epoch millis
+}
+
 /** A 409 from the merge endpoint: the message plus the conflicting paths. */
 export interface MergeConflictError extends Error {
     conflicts: string[];

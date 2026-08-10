@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { NewPullRequestForm } from '../components/PullRequest/NewPullRequestForm';
 import { PullRequestList } from '../components/PullRequest/PullRequestList';
+import { RecentBranchBanner } from '../components/PullRequest/RecentBranchBanner';
 import { fetchPullRequests, setFilter } from '../features/pullRequests/pullRequestSlice';
 import { useAppDispatch, useAppSelector } from '../features/store';
 import type { PullRequestFilter } from '../types/pullRequest';
@@ -14,8 +15,23 @@ const PullRequests: React.FC = () => {
   const { username = '', repo = '' } = useParams<{ username: string; repo: string }>();
 
   const { page, listLoading, listError, filter } = useAppSelector(state => state.pullRequests);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Arriving from the "recent pushes" banner (?compare=branch) opens the form pre-filled.
+  const compareBranch = searchParams.get('compare') ?? undefined;
+
   const [pageNum, setPageNum] = useState(0);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(!!compareBranch);
+  const [bannerKey, setBannerKey] = useState(0);
+
+  const startCreate = (branch?: string) => {
+    setSearchParams(branch ? { compare: branch } : {}, { replace: true });
+    setCreating(true);
+  };
+
+  const cancelCreate = () => {
+    setSearchParams({}, { replace: true });
+    setCreating(false);
+  };
 
   useEffect(() => {
     if (!username || !repo) return;
@@ -44,7 +60,7 @@ const PullRequests: React.FC = () => {
           </div>
           {!creating && (
             <button
-              onClick={() => setCreating(true)}
+              onClick={() => startCreate()}
               className="px-4 py-2 rounded-lg bg-gitbase-primary text-white text-sm font-medium hover:opacity-90"
             >
               New pull request
@@ -69,13 +85,22 @@ const PullRequests: React.FC = () => {
           <NewPullRequestForm
             username={username}
             repo={repo}
+            initialSource={compareBranch}
             onCreated={number => {
-              setCreating(false);
+              cancelCreate();
+              setBannerKey(k => k + 1);
               navigate(`/gitbase/${username}/${repo}/pulls/${number}`);
             }}
-            onCancel={() => setCreating(false)}
+            onCancel={cancelCreate}
           />
         ) : (
+          <>
+          <RecentBranchBanner
+            username={username}
+            repo={repo}
+            reloadKey={bannerKey}
+            onCompare={startCreate}
+          />
           <PullRequestList
             page={page}
             loading={listLoading}
@@ -86,6 +111,7 @@ const PullRequests: React.FC = () => {
             onPrev={() => setPageNum(n => Math.max(0, n - 1))}
             onNext={() => setPageNum(n => n + 1)}
           />
+          </>
         )}
       </main>
     </div>

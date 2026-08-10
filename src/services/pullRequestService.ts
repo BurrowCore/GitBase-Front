@@ -11,6 +11,7 @@ import type {
     PullRequest,
     PullRequestFilter,
     PullRequestPage,
+    PullSuggestion,
 } from '../types/pullRequest';
 
 const base = (username: string, repoName: string) =>
@@ -33,6 +34,21 @@ export const pullRequestService = {
                 base(username, repoName), { params },
             );
             return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /**
+     * Branches pushed recently that have no open pull request yet. Computed live from git refs,
+     * so a branch created over the CLI shows up without any explicit sync.
+     */
+    async suggestions(username: string, repoName: string): Promise<PullSuggestion[]> {
+        try {
+            const res = await axiosInstance.get<ApiResponse<PullSuggestion[]>>(
+                `${base(username, repoName)}/suggestions`,
+            );
+            return res.data.data ?? [];
         } catch (error) {
             throw this.handleError(error);
         }

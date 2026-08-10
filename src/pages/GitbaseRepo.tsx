@@ -5,6 +5,7 @@ import { DirectoryView } from '../components/Repository/DirectoryView';
 import { CodeViewer } from '../components/Repository/CodeViewer';
 import { FileExplorer } from '../components/Repository/FileExplorer';
 import { ReadmePanel } from '../components/Repository/ReadmePanel';
+import { RecentBranchBanner } from '../components/PullRequest/RecentBranchBanner';
 import { CommitList } from '../components/Repository/CommitList';
 import { CommitDetailView } from '../components/Repository/CommitDetailView';
 import { BranchSelector } from '../components/Repository/BranchSelector';
@@ -210,6 +211,16 @@ const GitbaseRepo: React.FC = () => {
               Pull requests
             </button>
           </div>
+        )}
+
+        {/* Surfaces branches pushed from the CLI that have no pull request yet. */}
+        {!isEmptyRepo && (
+          <RecentBranchBanner
+            username={username}
+            repo={repo}
+            onCompare={branch =>
+              navigate(`/gitbase/${username}/${repo}/pulls?compare=${encodeURIComponent(branch)}`)}
+          />
         )}
 
         {/* ── Browse view ── */}

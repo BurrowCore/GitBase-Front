@@ -7,15 +7,17 @@ import type { Compare } from '../../types/git';
 interface NewPullRequestFormProps {
   username: string;
   repo: string;
+  /** Pre-selects the compare branch (e.g. arriving from the "recent pushes" banner). */
+  initialSource?: string;
   onCreated: (number: number) => void;
   onCancel: () => void;
 }
 
 /** Branch-to-branch compare + open-a-pull-request form (US-001). */
-export function NewPullRequestForm({ username, repo, onCreated, onCancel }: NewPullRequestFormProps) {
+export function NewPullRequestForm({ username, repo, initialSource, onCreated, onCancel }: NewPullRequestFormProps) {
   const [branches, setBranches] = useState<BranchSummary[]>([]);
   const [target, setTarget] = useState('');
-  const [source, setSource] = useState('');
+  const [source, setSource] = useState(initialSource ?? '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
