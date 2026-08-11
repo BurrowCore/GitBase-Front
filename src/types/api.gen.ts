@@ -253,6 +253,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/branches/manage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a branch
+         * @description Creates `refs/heads/{name}` at `from` (defaults to HEAD). Operates directly on git refs —
+         *     GitBase stores no branch table, git is the source of truth. Requires write access.
+         *
+         *     NOTE: the real path is `POST /{username}/{repoName}/branches`; it is documented under a
+         *     distinct key here only because OpenAPI cannot express two operations that differ solely by
+         *     HTTP method on a path already defined above.
+         */
+        post: operations["createBranch"];
+        /**
+         * Delete a branch
+         * @description Deletes `refs/heads/{name}`. The repository's default branch (whatever HEAD points at)
+         *     cannot be deleted. Requires write access.
+         *
+         *     The branch name is a **query parameter**, not a path variable, because branch names
+         *     legitimately contain slashes (`feature/login`).
+         *
+         *     NOTE: the real path is `DELETE /{username}/{repoName}/branches` — see the note above.
+         */
+        delete: operations["deleteBranch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/web/gitbase/{username}/{repoName}/raw": {
         parameters: {
             query?: never;
@@ -784,6 +819,37 @@ export interface components {
             /** Format: int64 */
             totalElements?: number;
             hasNext?: boolean;
+        };
+        CreateBranch: {
+            /**
+             * @description Validated against git's own ref-name rules
+             * @example feature/login
+             */
+            name: string;
+            /**
+             * @description Branch, tag or SHA to branch from. Defaults to the repository's HEAD.
+             * @example main
+             */
+            from?: string | null;
+        };
+        ApiResponseBranch: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["BranchSummary"];
+        };
+        /** @description Success envelope with no payload. */
+        ApiResponseVoid: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: Record<string, never> | null;
         };
         /** @description A recently-pushed branch that has no open pull request yet. */
         PullSuggestion: {
@@ -1684,6 +1750,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    createBranch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBranch"];
+            };
+        };
+        responses: {
+            /** @description Branch created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBranch"];
+                };
+            };
+            /** @description Missing or invalid branch name (validated against git ref-name rules) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Caller lacks write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Repository not found, or the `from` start point does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description A branch with that name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConflict"];
+                };
+            };
+        };
+    };
+    deleteBranch: {
+        parameters: {
+            query: {
+                name: string;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Branch deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description Caller lacks write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Repository or branch not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Refused — this is the repository's default branch */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConflict"];
                 };
             };
         };

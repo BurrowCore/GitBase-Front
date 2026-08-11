@@ -192,6 +192,34 @@ export const gitService = {
         URL.revokeObjectURL(url);
     },
 
+    /**
+     * Create a branch. Operates on git refs server-side — there is no branch table.
+     * @param from branch/tag/SHA to branch from; defaults to the repository's HEAD
+     */
+    async createBranch(username: string, repoName: string, name: string, from?: string): Promise<BranchSummary> {
+        try {
+            const res = await axiosInstance.post<ApiResponse<BranchSummary>>(
+                `/web/gitbase/${username}/${repoName}/branches`,
+                { name, from },
+            );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /** Delete a branch. The repository's default branch cannot be deleted (409). */
+    async deleteBranch(username: string, repoName: string, name: string): Promise<void> {
+        try {
+            // Query param, not a path segment: branch names contain slashes (feature/login).
+            await axiosInstance.delete(`/web/gitbase/${username}/${repoName}/branches`, {
+                params: { name },
+            });
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
     /** Delete a repository the current user owns. */
     async deleteRepository(username: string, repoName: string): Promise<void> {
         try {

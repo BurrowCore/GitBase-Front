@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { DirectoryView } from '../components/Repository/DirectoryView';
@@ -9,8 +9,10 @@ import { RecentBranchBanner } from '../components/PullRequest/RecentBranchBanner
 import { CommitList } from '../components/Repository/CommitList';
 import { CommitDetailView } from '../components/Repository/CommitDetailView';
 import { BranchSelector } from '../components/Repository/BranchSelector';
+import { DeleteRepositoryDialog } from '../components/Repository/DeleteRepositoryDialog';
+import { useAppSelector } from '../features/store';
 import { gitService } from '../services/gitService';
-import type { BranchSummary, CommitDetail, CommitPage, DirectoryListing, FileContent } from '../types/git';
+import type { BranchSummary, CommitDetail, CommitPage, DirectoryListing, FileContent, RepositoryInfo } from '../types/git';
 
 type View = 'browse' | 'commits' | 'commit';
 
@@ -43,8 +45,21 @@ const GitbaseRepo: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
+  const [repoInfo, setRepoInfo] = useState<RepositoryInfo | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const viewer = useAppSelector(state => state.auth.user);
+  const isOwner = !!viewer?.name && viewer.name === username;
+
   const [copied, setCopied] = useState(false);
   const backendUrl = `http://localhost:8880/gitbase/${username}/${repo}.git`;
+
+  const loadBranches = useCallback(async () => {
+    const list = await gitService.listBranches(username, repo);
+    setBranches(list);
+    const def = list.find(b => b.isDefault) ?? list[0];
+    if (def) setRefName(prev => prev || def.name);
+    return list;
+  }, [username, repo]);
 
   useEffect(() => {
     if (!username || !repo) return;
@@ -60,6 +75,34 @@ const GitbaseRepo: React.FC = () => {
       .catch(() => { /* empty repo — ignore */ });
     return () => { active = false; };
   }, [username, repo]);
+
+  // Repository metadata (visibility, last commit) for the header pill.
+  useEffect(() => {
+    if (!username || !repo) return;
+    let active = true;
+    gitService
+      .getRepositoryInfo(username, repo)
+      .then(info => { if (active) setRepoInfo(info); })
+      .catch(() => { if (active) setRepoInfo(null); });
+    return () => { active = false; };
+  }, [username, repo]);
+
+  /** Create a branch (git ref) and switch to it. */
+  const createBranch = async (name: string, from: string) => {
+    await gitService.createBranch(username, repo, name, from);
+    await loadBranches();
+    onSelectBranch(name);
+  };
+
+  /** Delete a branch ref; fall back to the default branch if we were viewing it. */
+  const deleteBranch = async (name: string) => {
+    await gitService.deleteBranch(username, repo, name);
+    const list = await loadBranches();
+    if (refName === name) {
+      const def = list.find(b => b.isDefault) ?? list[0];
+      if (def) onSelectBranch(def.name);
+    }
+  };
 
   useEffect(() => {
     if (!username || !repo) return;
@@ -188,6 +231,12 @@ const GitbaseRepo: React.FC = () => {
               {' / '}
               <span className="text-white font-semibold">{repo}</span>
             </div>
+            {repoInfo && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-gitbase-border-dark/40 text-gitbase-text-secondary flex-shrink-0">
+                {/* Jackson serialises isPrivate() as "private" — see types/git.ts */}
+                {repoInfo.private ? 'Private' : 'Public'}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <code className="hidden md:inline text-xs text-gitbase-text-secondary font-mono bg-gitbase-surface-dark/80 border border-gitbase-border-dark/30 rounded px-2 py-1">
@@ -196,6 +245,15 @@ const GitbaseRepo: React.FC = () => {
             <button onClick={handleCopy} className="px-3 py-1.5 text-xs bg-white/5 rounded-lg text-gitbase-text-primary hover:bg-white/10">
               {copied ? 'Copied' : 'Clone'}
             </button>
+            {isOwner && (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                title="Delete this repository"
+                className="px-3 py-1.5 text-xs bg-white/5 rounded-lg text-gitbase-text-secondary hover:bg-red-500/20 hover:text-red-300"
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
 
@@ -228,7 +286,13 @@ const GitbaseRepo: React.FC = () => {
           <>
             {!isEmptyRepo && (
               <div className="flex items-center gap-3 mb-3 flex-wrap">
-                <BranchSelector branches={branches} current={currentBranch} onSelect={onSelectBranch} />
+                <BranchSelector
+                  branches={branches}
+                  current={currentBranch}
+                  onSelect={onSelectBranch}
+                  onCreate={isOwner ? createBranch : undefined}
+                  onDelete={isOwner ? deleteBranch : undefined}
+                />
                 {(segments.length > 0 || viewFile) && (
                   <div className="flex items-center gap-1 text-sm flex-wrap">
                     <button onClick={() => openDir('')} className="text-gitbase-primary hover:underline">{repo}</button>
@@ -341,6 +405,15 @@ git push -u origin main`}</pre>
           </>
         )}
       </main>
+
+      {confirmingDelete && (
+        <DeleteRepositoryDialog
+          username={username}
+          repo={repo}
+          onClose={() => setConfirmingDelete(false)}
+          onDeleted={() => navigate('/projects')}
+        />
+      )}
     </div>
   );
 };
