@@ -4,6 +4,7 @@ import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { NewPullRequestForm } from '../components/PullRequest/NewPullRequestForm';
 import { PullRequestList } from '../components/PullRequest/PullRequestList';
 import { RecentBranchBanner } from '../components/PullRequest/RecentBranchBanner';
+import { RepoTabs } from '../components/Repository/RepoTabs';
 import { fetchPullRequests, setFilter } from '../features/pullRequests/pullRequestSlice';
 import { useAppDispatch, useAppSelector } from '../features/store';
 import type { PullRequestFilter } from '../types/pullRequest';
@@ -68,18 +69,7 @@ const PullRequests: React.FC = () => {
           )}
         </div>
 
-        {/* Tabs back to code */}
-        <div className="flex items-center gap-1 border-b border-gitbase-border-dark/30 mb-4">
-          <button
-            onClick={() => navigate(`/gitbase/${username}/${repo}`)}
-            className="px-3 py-2 text-sm border-b-2 -mb-px border-transparent text-gitbase-text-secondary hover:text-gitbase-text-primary"
-          >
-            Code
-          </button>
-          <button className="px-3 py-2 text-sm border-b-2 -mb-px border-gitbase-primary text-white">
-            Pull requests
-          </button>
-        </div>
+        <RepoTabs username={username} repo={repo} active="pulls" />
 
         {creating ? (
           <NewPullRequestForm
