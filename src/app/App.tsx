@@ -25,6 +25,9 @@ import GitbaseRepo from '../pages/GitbaseRepo.tsx';
 import Projects from '../pages/Projects';
 import PullRequests from '../pages/PullRequests.tsx';
 import PullRequestDetail from '../pages/PullRequestDetail.tsx';
+import Issues from '../pages/Issues.tsx';
+import IssueDetail from '../pages/IssueDetail.tsx';
+import RepositorySettings from '../pages/RepositorySettings.tsx';
 
 interface AuthCheckProps {
   requiredRoles?: string[];
@@ -113,6 +116,18 @@ export const router = createBrowserRouter([
               {
                 path: "/gitbase/:username/:repo/pulls/:number",
                 element: <AuthCheck><PullRequestDetail /></AuthCheck>
+              },
+              {
+                path: "/gitbase/:username/:repo/issues",
+                element: <AuthCheck><Issues /></AuthCheck>
+              },
+              {
+                path: "/gitbase/:username/:repo/issues/:number",
+                element: <AuthCheck><IssueDetail /></AuthCheck>
+              },
+              {
+                path: "/gitbase/:username/:repo/settings",
+                element: <AuthCheck><RepositorySettings /></AuthCheck>
               }
         ]
       },

@@ -6,6 +6,7 @@ import { CodeViewer } from '../components/Repository/CodeViewer';
 import { FileExplorer } from '../components/Repository/FileExplorer';
 import { ReadmePanel } from '../components/Repository/ReadmePanel';
 import { RecentBranchBanner } from '../components/PullRequest/RecentBranchBanner';
+import { RepoTabs } from '../components/Repository/RepoTabs';
 import { CommitList } from '../components/Repository/CommitList';
 import { CommitDetailView } from '../components/Repository/CommitDetailView';
 import { BranchSelector } from '../components/Repository/BranchSelector';
@@ -259,16 +260,14 @@ const GitbaseRepo: React.FC = () => {
 
         {/* Tab nav */}
         {!isEmptyRepo && (
-          <div className="flex items-center gap-1 border-b border-gitbase-border-dark/30 mb-4">
-            <button onClick={() => openDir('')} className={tab(view === 'browse')}>Code</button>
-            <button onClick={openCommits} className={tab(view === 'commits' || view === 'commit')}>Commits</button>
-            <button
-              onClick={() => navigate(`/gitbase/${username}/${repo}/pulls`)}
-              className={tab(false)}
-            >
-              Pull requests
-            </button>
-          </div>
+          <>
+            <RepoTabs username={username} repo={repo} active="code" showSettings={isOwner} onCode={() => openDir('')} />
+            {/* Commits is a sub-view of Code, so it stays local rather than being a route. */}
+            <div className="flex items-center gap-1 -mt-2 mb-4">
+              <button onClick={() => openDir('')} className={tab(view === 'browse')}>Files</button>
+              <button onClick={openCommits} className={tab(view === 'commits' || view === 'commit')}>Commits</button>
+            </div>
+          </>
         )}
 
         {/* Surfaces branches pushed from the CLI that have no pull request yet. */}

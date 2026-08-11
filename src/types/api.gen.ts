@@ -699,6 +699,176 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List issues */
+        get: operations["listIssues"];
+        put?: never;
+        /**
+         * Open an issue
+         * @description Any user who can read the repository may open an issue.
+         */
+        post: operations["createIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List repository labels */
+        get: operations["listLabels"];
+        /**
+         * Create or update a label
+         * @description Idempotent — saving an existing name recolours it. Requires write access.
+         */
+        put: operations["saveLabel"];
+        post?: never;
+        /**
+         * Delete a label
+         * @description Requires write access. Issues carrying the label keep existing; only the link goes.
+         */
+        delete: operations["deleteLabel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an issue */
+        get: operations["getIssue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit an issue
+         * @description Partial update — omit a field to leave it unchanged. Sending `labels: []` or
+         *     `assignees: []` clears them, which is what distinguishes "don't touch" from "remove all".
+         *     Requires being the issue author or holding write access.
+         */
+        patch: operations["updateIssue"];
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close an issue */
+        post: operations["closeIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen an issue */
+        post: operations["reopenIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List issue comments */
+        get: operations["listIssueComments"];
+        put?: never;
+        /** Comment on an issue */
+        post: operations["addIssueComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/collaborators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List collaborators
+         * @description Requires read access, so collaborators can see who else they work with.
+         */
+        get: operations["listCollaborators"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/collaborators/{collaborator}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a collaborator or change their permission
+         * @description Idempotent: adds the grant, or updates the level if one already exists. Access takes
+         *     effect **immediately** — following Gitea, there is no invitation/acceptance step
+         *     (GitHub requires one).
+         *
+         *     **Owner-only.** Even an ADMIN collaborator cannot manage the collaborator list.
+         */
+        put: operations["setCollaborator"];
+        post?: never;
+        /**
+         * Remove a collaborator
+         * @description Owner-only. Issues and pull requests they authored are deliberately left untouched —
+         *     revoking access should not rewrite history (Gitea behaves the same way).
+         */
+        delete: operations["removeCollaborator"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -819,6 +989,159 @@ export interface components {
             /** Format: int64 */
             totalElements?: number;
             hasNext?: boolean;
+        };
+        Label: {
+            /** @example bug */
+            name?: string;
+            /**
+             * @description 6-digit hex
+             * @example d73a4a
+             */
+            color?: string;
+            description?: string | null;
+        };
+        CreateLabel: {
+            name: string;
+            /** @default cccccc */
+            color: string;
+            description?: string | null;
+        };
+        CreateIssue: {
+            title: string;
+            body?: string | null;
+            /** @description Label names. Unknown names are rejected with 404. */
+            labels?: string[];
+            /** @description Usernames. Unknown users are rejected with 404. */
+            assignees?: string[];
+        };
+        /** @description Every field optional — omit to leave unchanged; send an empty array to clear. */
+        UpdateIssue: {
+            title?: string;
+            body?: string;
+            labels?: string[];
+            assignees?: string[];
+        };
+        Issue: {
+            /** @description Shared sequence with pull requests */
+            number?: number;
+            title?: string;
+            body?: string | null;
+            /** @enum {string} */
+            state?: "OPEN" | "CLOSED";
+            author?: components["schemas"]["UserSummary"];
+            labels?: components["schemas"]["Label"][];
+            assignees?: components["schemas"]["UserSummary"][];
+            /** Format: int64 */
+            commentsCount?: number;
+            closedBy?: components["schemas"]["UserSummary"] | null;
+            /**
+             * Format: int64
+             * @description epoch millis
+             */
+            createdAt?: number | null;
+            /** Format: int64 */
+            updatedAt?: number | null;
+            /** Format: int64 */
+            closedAt?: number | null;
+        };
+        IssueSummary: {
+            number?: number;
+            title?: string;
+            /** @enum {string} */
+            state?: "OPEN" | "CLOSED";
+            author?: components["schemas"]["UserSummary"];
+            labels?: components["schemas"]["Label"][];
+            assignees?: components["schemas"]["UserSummary"][];
+            /** Format: int64 */
+            commentsCount?: number;
+            /** Format: int64 */
+            createdAt?: number | null;
+            /** Format: int64 */
+            updatedAt?: number | null;
+        };
+        IssuePage: {
+            issues?: components["schemas"]["IssueSummary"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            totalPages?: number;
+            hasNext?: boolean;
+            /** Format: int64 */
+            openCount?: number;
+            /** Format: int64 */
+            closedCount?: number;
+        };
+        ApiResponseIssue: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Issue"];
+        };
+        ApiResponseIssuePage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["IssuePage"];
+        };
+        ApiResponseLabel: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Label"];
+        };
+        ApiResponseLabelList: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Label"][];
+        };
+        Collaborator: {
+            user?: components["schemas"]["UserSummary"];
+            /**
+             * @description READ — view a private repo, clone, open issues.
+             *     WRITE — plus push, branch CRUD, merge pull requests.
+             *     ADMIN — plus repository settings. Deleting the repo and managing collaborators
+             *     remain owner-only.
+             * @enum {string}
+             */
+            permission?: "READ" | "WRITE" | "ADMIN";
+            /** Format: int64 */
+            createdAt?: number | null;
+        };
+        SetCollaborator: {
+            /** @enum {string} */
+            permission: "READ" | "WRITE" | "ADMIN";
+        };
+        ApiResponseCollaborator: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Collaborator"];
+        };
+        ApiResponseCollaboratorList: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Collaborator"][];
         };
         CreateBranch: {
             /**
@@ -1338,6 +1661,10 @@ export interface components {
         RepoName: string;
         /** @description Per-repository pull request number (#1, */
         PullNumber: number;
+        /** @description Per-repository issue number (#1, */
+        IssueNumber: number;
+        /** @description Username of the collaborator */
+        CollaboratorName: string;
     };
     requestBodies: never;
     headers: never;
@@ -2686,6 +3013,523 @@ export interface operations {
             };
             /** @description Validation error */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listIssues: {
+        parameters: {
+            query?: {
+                state?: "OPEN" | "CLOSED" | "ALL";
+                /** @description Filter to issues carrying this label name */
+                label?: string;
+                /** @description Filter to issues assigned to this username */
+                assignee?: string;
+                /** @description Case-insensitive match against title and body */
+                search?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issues retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssuePage"];
+                };
+            };
+            /** @description Repository not found (or private and not visible to the caller) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    createIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIssue"];
+            };
+        };
+        responses: {
+            /** @description Issue created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssue"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Repository, label or assignee not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Labels retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLabelList"];
+                };
+            };
+        };
+    };
+    saveLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLabel"];
+            };
+        };
+        responses: {
+            /** @description Label saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLabel"];
+                };
+            };
+            /** @description Caller lacks write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    deleteLabel: {
+        parameters: {
+            query: {
+                name: string;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Label deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description Label not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    getIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issue retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssue"];
+                };
+            };
+            /** @description Issue not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    updateIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIssue"];
+            };
+        };
+        responses: {
+            /** @description Issue updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssue"];
+                };
+            };
+            /** @description Caller is neither the author nor a user with write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    closeIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issue closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssue"];
+                };
+            };
+            /** @description Caller is neither the author nor a user with write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Issue is already closed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    reopenIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issue reopened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssue"];
+                };
+            };
+            /** @description Issue is already open */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listIssueComments: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comments retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCommentPage"];
+                };
+            };
+        };
+    };
+    addIssueComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateComment"];
+            };
+        };
+        responses: {
+            /** @description Comment added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseComment"];
+                };
+            };
+        };
+    };
+    listCollaborators: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collaborators retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCollaboratorList"];
+                };
+            };
+        };
+    };
+    setCollaborator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Username of the collaborator */
+                collaborator: components["parameters"]["CollaboratorName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCollaborator"];
+            };
+        };
+        responses: {
+            /** @description Collaborator saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCollaborator"];
+                };
+            };
+            /** @description Permission must be READ, WRITE or ADMIN */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Caller is not the repository owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Repository or user not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Target is the repository owner, who already has full access */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseConflict"];
+                };
+            };
+        };
+    };
+    removeCollaborator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Username of the collaborator */
+                collaborator: components["parameters"]["CollaboratorName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collaborator removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description Caller is not the repository owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Not a collaborator on this repository */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
