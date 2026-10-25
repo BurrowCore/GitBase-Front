@@ -2,11 +2,23 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { IssueBadge } from '../components/Issue/IssueBadge';
+import { IssueDependencies } from '../components/Issue/IssueDependencies';
 import { LabelChip } from '../components/Issue/LabelChip';
 import { MarkdownView } from '../components/Repository/MarkdownView';
-import { useAppSelector } from '../features/store';
+import {
+  addDependency,
+  clearCurrent,
+  closeIssue,
+  fetchDependencies,
+  fetchIssue,
+  fetchLabels,
+  removeDependency,
+  reopenIssue,
+  updateIssue,
+} from '../features/issues/issueSlice';
+import { useAppDispatch, useAppSelector } from '../features/store';
+import { useRepoPermissions } from '../hooks/useRepoPermissions';
 import { issueService } from '../services/issueService';
-import type { Issue, Label } from '../types/issue';
 import type { Comment } from '../types/pullRequest';
 import { formatRelativeTime } from '../utils/dateFormatter';
 
@@ -20,80 +32,52 @@ function Avatar({ name }: { name: string }) {
 
 const IssueDetail: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { username = '', repo = '', number: numberParam = '' } = useParams();
   const number = Number(numberParam);
   const viewer = useAppSelector(state => state.auth.user);
+  const {
+    current: issue, currentLoading, currentError, actionError, labels, blockedBy, blocks, dependencyError,
+  } = useAppSelector(state => state.issues);
+  const permissions = useRepoPermissions(username, repo);
 
-  const [issue, setIssue] = useState<Issue | null>(null);
-  const [labels, setLabels] = useState<Label[]>([]);
+  // Comments stay local, as on the pull-request page: they are only ever shown here.
   const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [detail, commentPage, labelList] = await Promise.all([
-        issueService.get(username, repo, number),
-        issueService.listComments(username, repo, number),
-        issueService.listLabels(username, repo).catch(() => []),
-      ]);
-      setIssue(detail);
-      setComments(commentPage.comments);
-      setLabels(labelList);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load issue');
-    } finally {
-      setLoading(false);
-    }
+  const ref = { username, repo, number };
+
+  useEffect(() => {
+    if (!username || !repo || !Number.isFinite(number)) return;
+    dispatch(fetchIssue({ username, repo, number }));
+    dispatch(fetchDependencies({ username, repo, number }));
+    dispatch(fetchLabels({ username, repo }));
+    return () => { dispatch(clearCurrent()); };
+  }, [dispatch, username, repo, number]);
+
+  const loadComments = useCallback(() => {
+    issueService.listComments(username, repo, number)
+      .then(page => setComments(page.comments))
+      .catch(err => setCommentError(err.message ?? 'Failed to load comments'));
   }, [username, repo, number]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { loadComments(); }, [loadComments]);
 
   const postComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!body.trim() || posting) return;
     setPosting(true);
-    setActionError(null);
+    setCommentError(null);
     try {
       const created = await issueService.addComment(username, repo, number, body.trim());
       setComments(prev => [...prev, created]);
       setBody('');
     } catch (err: any) {
-      setActionError(err.message ?? 'Failed to post comment');
+      setCommentError(err.message ?? 'Failed to post comment');
     } finally {
       setPosting(false);
-    }
-  };
-
-  const toggleState = async () => {
-    if (!issue) return;
-    setActionError(null);
-    try {
-      const updated = issue.state === 'OPEN'
-        ? await issueService.close(username, repo, number)
-        : await issueService.reopen(username, repo, number);
-      setIssue(updated);
-    } catch (err: any) {
-      setActionError(err.message ?? 'Action failed');
-    }
-  };
-
-  /** Toggling a label sends the full desired set — the API replaces rather than merges. */
-  const toggleLabel = async (name: string) => {
-    if (!issue) return;
-    const current = issue.labels.map(l => l.name);
-    const next = current.includes(name) ? current.filter(n => n !== name) : [...current, name];
-    setActionError(null);
-    try {
-      setIssue(await issueService.update(username, repo, number, { labels: next }));
-    } catch (err: any) {
-      setActionError(err.message ?? 'Could not update labels');
     }
   };
 
@@ -104,13 +88,22 @@ const IssueDetail: React.FC = () => {
     </div>
   );
 
-  if (loading && !issue) return shell(<div className="text-gitbase-text-secondary">Loading issue…</div>);
-  if (error) return shell(<div className="text-red-400">{error}</div>);
+  if (currentLoading && !issue) return shell(<div className="text-gitbase-text-secondary">Loading issue…</div>);
+  if (currentError) return shell(<div className="text-red-400">{currentError}</div>);
   if (!issue) return shell(<div />);
 
-  // Only the author or someone with write access may close/reopen; the server enforces this too,
-  // so hiding the control is a convenience rather than the actual gate.
-  const canModify = viewer?.name === issue.author?.username || viewer?.name === username;
+  // The author or anyone with write access may edit, close or reopen. The server
+  // enforces this too, so hiding the controls is a convenience rather than the actual gate.
+  const canModify = permissions.push || viewer?.name === issue.author?.username;
+
+  /** Toggling a label sends the full desired set — the API replaces rather than merges. */
+  const toggleLabel = (name: string) => {
+    const current = issue.labels.map(l => l.name);
+    const next = current.includes(name) ? current.filter(n => n !== name) : [...current, name];
+    dispatch(updateIssue({ ...ref, changes: { labels: next } }));
+  };
+
+  const openIssue = (target: number) => navigate(`/gitbase/${username}/${repo}/issues/${target}`);
 
   return shell(
     <>
@@ -132,9 +125,20 @@ const IssueDetail: React.FC = () => {
           {' opened this '}{formatRelativeTime(issue.createdAt ?? 0)}
           {' · '}{issue.commentsCount} comment(s)
         </span>
+        {issue.state === 'CLOSED' && issue.closedByPullNumber != null && (
+          <span className="text-sm text-gitbase-text-secondary">
+            · closed by pull request{' '}
+            <button
+              onClick={() => navigate(`/gitbase/${username}/${repo}/pulls/${issue.closedByPullNumber}`)}
+              className="text-gitbase-primary hover:underline"
+            >
+              #{issue.closedByPullNumber}
+            </button>
+          </span>
+        )}
         {canModify && (
           <button
-            onClick={toggleState}
+            onClick={() => dispatch(issue.state === 'OPEN' ? closeIssue(ref) : reopenIssue(ref))}
             className="ml-auto px-3 py-1.5 rounded-lg bg-white/5 text-sm text-gitbase-text-primary hover:bg-white/10"
           >
             {issue.state === 'OPEN' ? 'Close issue' : 'Reopen issue'}
@@ -184,6 +188,7 @@ const IssueDetail: React.FC = () => {
               rows={4}
               className="w-full px-3 py-2 rounded-md bg-gitbase-surface-dark border border-gitbase-border-dark/30 text-sm text-gitbase-text-primary placeholder:text-gitbase-text-secondary focus:outline-none focus:border-gitbase-primary/50"
             />
+            {commentError && <div className="text-sm text-red-400">{commentError}</div>}
             <div className="flex justify-end">
               <button
                 type="submit"
@@ -228,6 +233,16 @@ const IssueDetail: React.FC = () => {
               </div>
             )}
           </div>
+
+          <IssueDependencies
+            blockedBy={blockedBy}
+            blocks={blocks}
+            canEdit={permissions.push /* write access only — authorship isn't enough */}
+            error={dependencyError}
+            onAdd={dependency => dispatch(addDependency({ ...ref, dependency }))}
+            onRemove={dependency => dispatch(removeDependency({ ...ref, dependency }))}
+            onOpen={openIssue}
+          />
         </aside>
       </div>
     </>

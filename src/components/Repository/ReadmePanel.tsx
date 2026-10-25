@@ -18,7 +18,7 @@ function findReadme(entries: DirEntry[]): DirEntry | undefined {
   return candidates.find(e => /\.(md|markdown|mdown)$/i.test(e.name)) ?? candidates[0];
 }
 
-/** GitHub/Gitea-style rendered README shown beneath the directory listing. */
+/** Rendered README shown beneath the directory listing. */
 export function ReadmePanel({ username, repo, refName, entries }: ReadmePanelProps) {
   const readme = findReadme(entries);
   const readmePath = readme?.path;

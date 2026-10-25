@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../../features/store';
 import { gitService } from '../../services/gitService';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchUserRepos } from '../../features/repos/reposSlice';
-// ...existing code...
+import { fetchMyOrganizations } from '../../features/orgs/orgSlice';
 import type { createRepository } from '../../types/git';
 
 interface RepositoryFormProps {
@@ -12,6 +12,8 @@ interface RepositoryFormProps {
 
 export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
     const { user } = useAppSelector(state => state.auth);
+    const organizations = useAppSelector(state => state.orgs.mine);
+    const [searchParams] = useSearchParams();
 
     const dispatch = useAppDispatch();
 
@@ -20,28 +22,34 @@ export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
         isPrivate: true,
         defaultBranch: "main"
     });
+    // Owner namespace: the user's own, or an organization they may create repositories in.
+    const [owner, setOwner] = useState<string>(searchParams.get('owner') ?? '');
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => { dispatch(fetchMyOrganizations(undefined)); }, [dispatch]);
+
+    const ownerChoices = organizations.filter(o => o.viewerCanCreateRepository);
 
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         onSubmit(formData);
+        setError(null);
+        const namespace = owner || user?.name || '';
         try {
             const payload: any = {
                 ...formData,
-                username: user?.name,
+                username: namespace,
                 // ensure backend receives the camelCase isPrivate field
                 isPrivate: Boolean(formData.isPrivate)
             };
-            console.log('Payload for repository creation:', payload);
-                const result = await gitService.createRepository(payload as any);
-                console.debug('createRepository response', result);
-                if (user?.name) dispatch(fetchUserRepos(user.name) as any);
-            const username = encodeURIComponent(String(user?.name || ''));
+            await gitService.createRepository(payload as any);
+            if (user?.name) dispatch(fetchUserRepos(user.name) as any);
             const repo = encodeURIComponent(String(formData.repoName || ''));
-            navigate(`/gitbase/${username}/${repo}`);
-        } catch (err) {
-            console.error('Failed to create repository', err);
+            navigate(`/gitbase/${encodeURIComponent(namespace)}/${repo}`);
+        } catch (err: any) {
+            setError(err?.message ?? 'Failed to create repository');
         }
     };
 
@@ -54,6 +62,20 @@ export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
                 </h2>
 
                 <div className="space-y-4">
+                    {ownerChoices.length > 0 && (
+                        <div>
+                            <label htmlFor="owner" className="block text-sm font-medium text-gitbase-text-primary">Owner</label>
+                            <select
+                                id="owner"
+                                value={owner}
+                                onChange={(e) => setOwner(e.target.value)}
+                                className="mt-1 block w-full rounded-lg bg-white/5 border border-gitbase-border-light/10 text-gitbase-text-primary sm:text-sm px-4 py-2"
+                            >
+                                <option value="">{user?.name} (you)</option>
+                                {ownerChoices.map(o => <option key={o.name} value={o.name}>{o.name}</option>)}
+                            </select>
+                        </div>
+                    )}
                     <div>
                         <label htmlFor="name" className="block text-sm font-medium text-gitbase-text-primary">
                             Repository name <span className="text-gitbase-primary">*</span>
@@ -174,6 +196,8 @@ export const RepositoryForm: React.FC<RepositoryFormProps> = ({ onSubmit }) => {
                     </div> */}
                 </div>
             </div>
+
+            {error && <div className="text-sm text-red-400">{error}</div>}
 
             <div className="flex justify-end">
                 <button

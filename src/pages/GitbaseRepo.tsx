@@ -11,7 +11,6 @@ import { CommitList } from '../components/Repository/CommitList';
 import { CommitDetailView } from '../components/Repository/CommitDetailView';
 import { BranchSelector } from '../components/Repository/BranchSelector';
 import { DeleteRepositoryDialog } from '../components/Repository/DeleteRepositoryDialog';
-import { useAppSelector } from '../features/store';
 import { gitService } from '../services/gitService';
 import type { BranchSummary, CommitDetail, CommitPage, DirectoryListing, FileContent, RepositoryInfo } from '../types/git';
 
@@ -48,8 +47,10 @@ const GitbaseRepo: React.FC = () => {
 
   const [repoInfo, setRepoInfo] = useState<RepositoryInfo | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const viewer = useAppSelector(state => state.auth.user);
-  const isOwner = !!viewer?.name && viewer.name === username;
+  // From repo-info's permissions, not the URL: an organization's owners never have the
+  // organization's name, and write collaborators may manage branches too.
+  const isOwner = !!repoInfo?.permissions?.owner;
+  const canWrite = !!repoInfo?.permissions?.push;
 
   const [copied, setCopied] = useState(false);
   const backendUrl = `http://localhost:8880/gitbase/${username}/${repo}.git`;
@@ -289,8 +290,8 @@ const GitbaseRepo: React.FC = () => {
                   branches={branches}
                   current={currentBranch}
                   onSelect={onSelectBranch}
-                  onCreate={isOwner ? createBranch : undefined}
-                  onDelete={isOwner ? deleteBranch : undefined}
+                  onCreate={canWrite ? createBranch : undefined}
+                  onDelete={canWrite ? deleteBranch : undefined}
                 />
                 {(segments.length > 0 || viewFile) && (
                   <div className="flex items-center gap-1 text-sm flex-wrap">

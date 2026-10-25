@@ -12,6 +12,7 @@ import type {
     CommitDetail,
     BranchSummary,
     Compare,
+    TransferResult,
 } from '../types/git';
 
 export const gitService = {
@@ -221,6 +222,18 @@ export const gitService = {
     },
 
     /** Delete a repository the current user owns. */
+    /** Moves the repository into an organization; its issues, PRs and history go with it. */
+    async transferRepository(username: string, repoName: string, newOwner: string): Promise<TransferResult> {
+        try {
+            const res = await axiosInstance.post<ApiResponse<TransferResult>>(
+                `/web/gitbase/${username}/${repoName}/transfer`, { newOwner },
+            );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
     async deleteRepository(username: string, repoName: string): Promise<void> {
         try {
             await axiosInstance.delete(`/web/gitbase/${username}/${repoName}`);

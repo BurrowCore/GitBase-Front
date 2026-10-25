@@ -3,7 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { DeleteRepositoryDialog } from '../components/Repository/DeleteRepositoryDialog';
 import { RepoTabs } from '../components/Repository/RepoTabs';
-import { useAppSelector } from '../features/store';
+import { TransferRepositoryDialog } from '../components/Repository/TransferRepositoryDialog';
+import { fetchMyOrganizations } from '../features/orgs/orgSlice';
+import { useAppDispatch, useAppSelector } from '../features/store';
+import { useRepoPermissions } from '../hooks/useRepoPermissions';
 import { collaboratorService } from '../services/collaboratorService';
 import type { Collaborator, RepositoryPermission } from '../types/collaborator';
 
@@ -17,8 +20,17 @@ const PERMISSIONS: { value: RepositoryPermission; label: string; hint: string }[
 const RepositorySettings: React.FC = () => {
   const navigate = useNavigate();
   const { username = '', repo = '' } = useParams<{ username: string; repo: string }>();
-  const viewer = useAppSelector(state => state.auth.user);
-  const isOwner = !!viewer?.name && viewer.name === username;
+  const dispatch = useAppDispatch();
+  // From the server, not `viewer.name === username`: for an organization's repository the owners
+  // are the members of its Owners team, whose usernames never equal the namespace.
+  const permissions = useRepoPermissions(username, repo);
+  const isOwner = permissions.owner;
+  const transferTargets = useAppSelector(state => state.orgs.mine)
+    .filter(org => org.viewerCanCreateRepository && org.name !== username)
+    .map(org => org.name);
+  const [transferring, setTransferring] = useState(false);
+
+  useEffect(() => { dispatch(fetchMyOrganizations(undefined)); }, [dispatch]);
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,6 +197,21 @@ const RepositorySettings: React.FC = () => {
               <div className="px-4 py-3 bg-red-500/10 border-b border-red-500/30">
                 <h2 className="text-red-300 font-semibold">Danger zone</h2>
               </div>
+              <div className="px-4 py-4 flex items-center justify-between gap-3 flex-wrap border-b border-red-500/20">
+                <div className="min-w-0">
+                  <div className="text-sm text-gitbase-text-primary">Transfer ownership</div>
+                  <div className="text-xs text-gitbase-text-secondary">
+                    Move this repository into an organization. Issues, pull requests and history go with it;
+                    clone URLs change.
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTransferring(true)}
+                  className="px-3 py-1.5 rounded-lg bg-yellow-600/80 text-white text-sm font-medium hover:bg-yellow-600 flex-shrink-0"
+                >
+                  Transfer
+                </button>
+              </div>
               <div className="px-4 py-4 flex items-center justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
                   <div className="text-sm text-gitbase-text-primary">Delete this repository</div>
@@ -203,6 +230,16 @@ const RepositorySettings: React.FC = () => {
           </div>
         )}
       </main>
+
+      {transferring && (
+        <TransferRepositoryDialog
+          owner={username}
+          repo={repo}
+          orgChoices={transferTargets}
+          onClose={() => setTransferring(false)}
+          onTransferred={result => navigate(`/gitbase/${result.owner}/${result.repoName}/settings`)}
+        />
+      )}
 
       {confirmingDelete && (
         <DeleteRepositoryDialog

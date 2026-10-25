@@ -11,7 +11,7 @@ interface DeleteRepositoryDialogProps {
 /**
  * Irreversible-action dialog for deleting a repository.
  *
- * Follows the GitHub/Gitea pattern of requiring the user to type the repository name before the
+ * Requires the user to type the repository name before the
  * confirm button unlocks — deletion removes the database row *and* the bare repository on disk,
  * and there is no undo.
  */

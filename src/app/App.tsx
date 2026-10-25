@@ -28,6 +28,10 @@ import PullRequestDetail from '../pages/PullRequestDetail.tsx';
 import Issues from '../pages/Issues.tsx';
 import IssueDetail from '../pages/IssueDetail.tsx';
 import RepositorySettings from '../pages/RepositorySettings.tsx';
+import Organizations from '../pages/Organizations.tsx';
+import NewOrganization from '../pages/NewOrganization.tsx';
+import Organization from '../pages/Organization.tsx';
+import TeamDetail from '../pages/TeamDetail.tsx';
 
 interface AuthCheckProps {
   requiredRoles?: string[];
@@ -103,6 +107,22 @@ export const router = createBrowserRouter([
           {
             path: "/new",
             element: <AuthCheck><NewRepository /></AuthCheck>
+          },
+          {
+            path: "/orgs",
+            element: <AuthCheck><Organizations /></AuthCheck>
+          },
+          {
+            path: "/orgs/new",
+            element: <AuthCheck><NewOrganization /></AuthCheck>
+          },
+          {
+            path: "/orgs/:org",
+            element: <AuthCheck><Organization /></AuthCheck>
+          },
+          {
+            path: "/orgs/:org/teams/:team",
+            element: <AuthCheck><TeamDetail /></AuthCheck>
           }
               ,
               {

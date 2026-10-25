@@ -1,21 +1,26 @@
 import { useState } from 'react';
 import { issueService } from '../../services/issueService';
-import type { Label } from '../../types/issue';
+import type { IssueTemplate, Label } from '../../types/issue';
 import { LabelChip } from './LabelChip';
 
 interface NewIssueFormProps {
   username: string;
   repo: string;
   labels: Label[];
+  /** Prefills title, body and labels; null for a blank issue. */
+  template?: IssueTemplate | null;
   onCreated: (number: number) => void;
   onCancel: () => void;
 }
 
 /** Open-an-issue form with inline label selection. */
-export function NewIssueForm({ username, repo, labels, onCreated, onCancel }: NewIssueFormProps) {
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [selected, setSelected] = useState<string[]>([]);
+export function NewIssueForm({ username, repo, labels, template, onCreated, onCancel }: NewIssueFormProps) {
+  const [title, setTitle] = useState(template?.title ?? '');
+  const [body, setBody] = useState(template?.body ?? '');
+  // Only preselect labels that exist — the server rejects unknown names.
+  const [selected, setSelected] = useState<string[]>(
+    () => (template?.labels ?? []).filter(name => labels.some(l => l.name === name)),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

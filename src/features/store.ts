@@ -3,6 +3,8 @@ import authReducer from './auth/authSlice';
 import activityReducer from './activity/activitySlice';
 import reposReducer from './repos/reposSlice';
 import pullRequestReducer from './pullRequests/pullRequestSlice';
+import issueReducer from './issues/issueSlice';
+import orgReducer from './orgs/orgSlice';
 import { useDispatch, useSelector, type TypedUseSelectorHook } from "react-redux";
 
 const rootReducer = {
@@ -10,6 +12,8 @@ const rootReducer = {
   activity: activityReducer,
   repos: reposReducer,
   pullRequests: pullRequestReducer,
+  issues: issueReducer,
+  orgs: orgReducer,
 }
 
 export const store = configureStore({
