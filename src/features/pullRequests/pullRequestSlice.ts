@@ -67,6 +67,8 @@ interface PullRequestState {
     listError: string | null;
     filter: PullRequestFilter;
     current: PullRequest | null;
+    /** The pull request being shown; responses for any other number are stale and ignored. */
+    currentNumber: number | null;
     currentLoading: boolean;
     currentError: string | null;
     /** Error from a close/reopen action, kept separate from load errors. */
@@ -79,6 +81,7 @@ const initialState: PullRequestState = {
     listError: null,
     filter: 'OPEN',
     current: null,
+    currentNumber: null,
     currentLoading: false,
     currentError: null,
     actionError: null,
@@ -93,6 +96,7 @@ const pullRequestSlice = createSlice({
         },
         clearCurrent(state) {
             state.current = null;
+            state.currentNumber = null;
             state.currentError = null;
             state.actionError = null;
         },
@@ -116,15 +120,18 @@ const pullRequestSlice = createSlice({
                 state.listError = (action.payload as string) ?? 'Failed to load pull requests';
             })
 
-            .addCase(fetchPullRequest.pending, (state) => {
+            .addCase(fetchPullRequest.pending, (state, action) => {
+                state.currentNumber = action.meta.arg.number;
                 state.currentLoading = true;
                 state.currentError = null;
             })
             .addCase(fetchPullRequest.fulfilled, (state, action) => {
+                if (action.meta.arg.number !== state.currentNumber) return; // stale
                 state.currentLoading = false;
                 state.current = action.payload;
             })
             .addCase(fetchPullRequest.rejected, (state, action) => {
+                if (action.meta.arg.number !== state.currentNumber) return; // stale
                 state.currentLoading = false;
                 state.currentError = (action.payload as string) ?? 'Failed to load pull request';
             });
@@ -133,7 +140,10 @@ const pullRequestSlice = createSlice({
         for (const thunk of [closePullRequest, reopenPullRequest]) {
             builder
                 .addCase(thunk.pending, (state) => { state.actionError = null; })
-                .addCase(thunk.fulfilled, (state, action) => { state.current = action.payload; })
+                .addCase(thunk.fulfilled, (state, action) => {
+                    if (action.meta.arg.number !== state.currentNumber) return; // stale
+                    state.current = action.payload;
+                })
                 .addCase(thunk.rejected, (state, action) => {
                     state.actionError = (action.payload as string) ?? 'Action failed';
                 });

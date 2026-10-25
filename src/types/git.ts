@@ -43,6 +43,26 @@ export interface RepositoryInfo {
     repoName: string;
     private: boolean;
     lastCommitTime: number; // epoch millis
+    /** What the viewer may do — for rendering controls; the server still enforces every check. */
+    permissions: RepositoryPermissions;
+}
+
+/** Where a transferred repository now lives. Old clone URLs stop working. */
+export interface TransferResult {
+    owner: string;
+    repoName: string;
+    /** New git path, `/gitbase/{owner}/{repo}.git`. */
+    cloneUrlPath: string;
+}
+
+export interface RepositoryPermissions {
+    pull: boolean;
+    /** Push, merge pull requests, manage branches (WRITE or above). */
+    push: boolean;
+    /** Repository settings (ADMIN or above). */
+    admin: boolean;
+    /** Delete the repository, manage collaborators. */
+    owner: boolean;
 }
 
 /** `data` payload returned by POST /web/gitbase/create. */

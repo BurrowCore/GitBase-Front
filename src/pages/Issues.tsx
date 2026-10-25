@@ -1,61 +1,61 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardNavbar } from '../components/Dashboard/DashboardNavbar';
 import { IssueList } from '../components/Issue/IssueList';
+import { IssueTemplateChooser } from '../components/Issue/IssueTemplateChooser';
 import { NewIssueForm } from '../components/Issue/NewIssueForm';
 import { RepoTabs } from '../components/Repository/RepoTabs';
-import { issueService } from '../services/issueService';
-import type { IssueFilter, IssuePage, Label } from '../types/issue';
+import {
+  fetchIssues,
+  fetchLabels,
+  fetchTemplates,
+  enterRepository,
+  setFilter,
+  setLabelFilter,
+  setPageNum,
+  setSearch,
+} from '../features/issues/issueSlice';
+import { useAppDispatch, useAppSelector } from '../features/store';
+import { useRepoPermissions } from '../hooks/useRepoPermissions';
+import type { IssueTemplate } from '../types/issue';
 
-/** Issue list for a repository, plus the inline "new issue" form. */
+/** Where the "new issue" flow is: not started, picking a template, or filling the form. */
+type Composer = { step: 'closed' } | { step: 'choosing' } | { step: 'writing'; template: IssueTemplate | null };
+
+/** Issue list for a repository, plus the template chooser and the "new issue" form. */
 const Issues: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { username = '', repo = '' } = useParams<{ username: string; repo: string }>();
+  const {
+    page, listLoading, listError, filter, labelFilter, search, pageNum, labels, templates,
+  } = useAppSelector(s => s.issues);
+  const permissions = useRepoPermissions(username, repo);
+  const [composer, setComposer] = useState<Composer>({ step: 'closed' });
 
-  const [page, setPage] = useState<IssuePage | null>(null);
-  const [labels, setLabels] = useState<Label[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [filter, setFilter] = useState<IssueFilter>('OPEN');
-  const [labelFilter, setLabelFilter] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [pageNum, setPageNum] = useState(0);
-  const [creating, setCreating] = useState(false);
-
+  // Filters survive a round trip to an issue and back; another repository starts clean.
   useEffect(() => {
     if (!username || !repo) return;
-    let active = true;
-    issueService
-      .listLabels(username, repo)
-      .then(list => { if (active) setLabels(list); })
-      .catch(() => { if (active) setLabels([]); });
-    return () => { active = false; };
-  }, [username, repo]);
-
-  const load = useCallback(() => {
-    if (!username || !repo) return () => {};
-    let active = true;
-    setLoading(true);
-    setError(null);
-    issueService
-      .list(username, repo, {
-        state: filter,
-        label: labelFilter ?? undefined,
-        search: search.trim() || undefined,
-        page: pageNum,
-      })
-      .then(data => { if (active) setPage(data); })
-      .catch(err => { if (active) setError(err.message ?? 'Failed to load issues'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [username, repo, filter, labelFilter, search, pageNum]);
+    dispatch(enterRepository(`${username}/${repo}`));
+    dispatch(fetchLabels({ username, repo }));
+  }, [dispatch, username, repo]);
 
   // Debounced so typing in the search box doesn't fire a request per keystroke.
   useEffect(() => {
-    const timer = setTimeout(load, search ? 300 : 0);
+    if (!username || !repo) return;
+    const timer = setTimeout(
+      () => dispatch(fetchIssues({ username, repo, state: filter, label: labelFilter, search, page: pageNum })),
+      search ? 300 : 0,
+    );
     return () => clearTimeout(timer);
-  }, [load, search]);
+  }, [dispatch, username, repo, filter, labelFilter, search, pageNum]);
+
+  // Templates are read from git on demand — only when someone actually starts a new issue.
+  const startNewIssue = async () => {
+    const loaded = templates ?? await dispatch(fetchTemplates({ username, repo })).unwrap();
+    const hasTemplates = loaded.templates.length > 0 || loaded.contactLinks.length > 0;
+    setComposer(hasTemplates ? { step: 'choosing' } : { step: 'writing', template: null });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gitbase-dark via-gitbase-secondary to-gitbase-dark">
@@ -74,9 +74,9 @@ const Issues: React.FC = () => {
             </button>
             <span> / issues</span>
           </div>
-          {!creating && (
+          {composer.step === 'closed' && (
             <button
-              onClick={() => setCreating(true)}
+              onClick={startNewIssue}
               className="px-4 py-2 rounded-lg bg-gitbase-primary text-white text-sm font-medium hover:opacity-90"
             >
               New issue
@@ -86,29 +86,42 @@ const Issues: React.FC = () => {
 
         <RepoTabs username={username} repo={repo} active="issues" />
 
-        {creating ? (
+        {composer.step === 'choosing' && templates && (
+          <IssueTemplateChooser
+            templates={templates}
+            showErrors={permissions.push}
+            onPick={template => setComposer({ step: 'writing', template })}
+            onCancel={() => setComposer({ step: 'closed' })}
+          />
+        )}
+
+        {composer.step === 'writing' && (
           <NewIssueForm
+            key={composer.template?.fileName ?? 'blank'}
             username={username}
             repo={repo}
             labels={labels}
+            template={composer.template}
             onCreated={number => navigate(`/gitbase/${username}/${repo}/issues/${number}`)}
-            onCancel={() => setCreating(false)}
+            onCancel={() => setComposer({ step: 'closed' })}
           />
-        ) : (
+        )}
+
+        {composer.step === 'closed' && (
           <IssueList
             page={page}
             labels={labels}
-            loading={loading}
-            error={error}
+            loading={listLoading}
+            error={listError}
             filter={filter}
             labelFilter={labelFilter}
             search={search}
-            onFilterChange={next => { setPageNum(0); setFilter(next); }}
-            onLabelFilterChange={next => { setPageNum(0); setLabelFilter(next); }}
-            onSearchChange={next => { setPageNum(0); setSearch(next); }}
+            onFilterChange={next => dispatch(setFilter(next))}
+            onLabelFilterChange={next => dispatch(setLabelFilter(next))}
+            onSearchChange={next => dispatch(setSearch(next))}
             onOpen={number => navigate(`/gitbase/${username}/${repo}/issues/${number}`)}
-            onPrev={() => setPageNum(n => Math.max(0, n - 1))}
-            onNext={() => setPageNum(n => n + 1)}
+            onPrev={() => dispatch(setPageNum(pageNum - 1))}
+            onNext={() => dispatch(setPageNum(pageNum + 1))}
           />
         )}
       </main>

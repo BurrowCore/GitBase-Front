@@ -145,8 +145,9 @@ export interface paths {
         put?: never;
         /**
          * Create a new bare repository
-         * @description Creates a bare Git repository on disk and persists metadata in PostgreSQL.
-         *     Returns the git commands the user should run to push their first commit.
+         * @description Creates a bare Git repository on disk under the caller's namespace — or an organization's,
+         *     see `username` — and persists metadata in PostgreSQL. Returns the git commands the user should run to push
+         *     their first commit; `remoteUrl` points at the JGit servlet (`/gitbase/{owner}/{repo}.git`).
          */
         post: operations["createRepository"];
         delete?: never;
@@ -166,6 +167,33 @@ export interface paths {
         get: operations["listUserRepositories"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer a repository into an organization
+         * @description Moves the repository to `newOwner`, an organization. Immediate — no acceptance step — because
+         *     the caller must be the repository's owner (or an owner of its organization) **and** allowed
+         *     to create repositories in the target (its owner, or a member of a team with
+         *     `canCreateOrgRepo`). Issues, pull requests, labels and history move with it; the bare
+         *     repository moves on disk to `/{newOwner}/{repo}.git`. Teams of the previous organization
+         *     lose their grant on it; collaborator grants held by owners of the new organization are
+         *     dropped as redundant; a creator who is not an owner there keeps ADMIN as a collaborator.
+         *     **Old clone URLs stop working** (no redirect yet) — update remotes to `cloneUrlPath`.
+         */
+        post: operations["transferRepository"];
         delete?: never;
         options?: never;
         head?: never;
@@ -634,8 +662,25 @@ export interface paths {
         put?: never;
         /**
          * Merge a pull request
-         * @description Performs a server-side three-way merge in memory (repositories are bare) and moves the
-         *     target branch with a compare-and-swap ref update. Requires write access.
+         * @description Lands the pull request with one of GitHub's three methods (Gitea's core three):
+         *
+         *     - `merge` — two-parent merge commit; message defaults to `Merge pull request #N: <title>`.
+         *     - `squash` — one commit on the target. Author = the PR author, committer = the merger.
+         *       Default message: `<title> (#N)`, then `* <subject>` per squashed commit and a
+         *       `Co-authored-by:` trailer for every other author among them (past 100 commits only the
+         *       newest 100 are listed, with a note). Nothing is written if the changes already landed.
+         *     - `rebase` — each source commit replayed onto the target with its original author and
+         *       message (committer = the merger); merge commits and commits that become empty are
+         *       dropped, as `git rebase` does. Fast-forwards when the target has not moved.
+         *       `commitMessage` is ignored. At most 250 commits (405 beyond that).
+         *
+         *     Everything runs in memory on the bare repository and ends in a compare-and-swap ref
+         *     update, so a concurrent push is never overwritten (409). If the source is already
+         *     contained in the target, nothing is written and `sha` is the unchanged tip. No database
+         *     transaction is held during the git work; a second concurrent merge of the same pull
+         *     request gets 409. After the merge commits, issues named with closing keywords are closed
+         *     (see `PullRequest.closingIssues`) — a failure there never undoes the merge.
+         *     Requires write access (owner, or WRITE/ADMIN collaborator).
          */
         post: operations["mergePullRequest"];
         delete?: never;
@@ -785,6 +830,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Issue templates and chooser configuration
+         * @description Read **live from the default branch** on every call — nothing is stored. Markdown templates
+         *     with YAML front matter (`name`, `about`/`description`, `title`, `labels`, `assignees`) in
+         *     `.gitbase/ISSUE_TEMPLATE/`, plus `.gitbase/ISSUE_TEMPLATE/config.yml`
+         *     (`blank_issues_enabled`, `contact_links`). Without that directory, a single
+         *     `.gitbase/ISSUE_TEMPLATE.md` or root `ISSUE_TEMPLATE.md` is offered. Other products' folders
+         *     (`.github/`, `.gitea/`) are not read. At most 50 templates of ≤ 1 MiB each and 2 MiB in
+         *     total, 200 directory entries scanned, 20 errors reported. YAML issue forms
+         *     are not supported yet and are listed in `errors`; a broken file never fails the request.
+         *     Contact links must be http(s).
+         */
+        get: operations["getIssueTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}/dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues this issue depends on ("blocked by") */
+        get: operations["listIssueDependencies"];
+        put?: never;
+        /**
+         * Make this issue depend on another
+         * @description Same-repository only. Requires write access — Gitea's rule; authorship is not enough, so a reader of a public repository cannot attach their issue to maintainers' issues. Rejects self-dependencies and numbers that are not issues (400), duplicates and any cycle (409) — Gitea only rejects the direct A↔B pair.
+         */
+        post: operations["addIssueDependency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}/dependencies/{dependency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a dependency
+         * @description Gitea takes the dependency in a DELETE body; many clients and proxies drop DELETE bodies, so it is a path segment here.
+         */
+        delete: operations["removeIssueDependency"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues that depend on this issue ("blocks") */
+        get: operations["listIssueBlocks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/web/gitbase/{username}/{repoName}/issues/{number}/reopen": {
         parameters: {
             query?: never;
@@ -869,10 +1000,399 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web/gitbase/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an organization
+         * @description The caller becomes its first owner (member of the auto-created Owners team). The name joins the username namespace and is stored lowercase.
+         */
+        post: operations["createOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        /** Organization profile, with what the viewer may do */
+        get: operations["getOrganization"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an organization (owners)
+         * @description Refused while it still owns repositories (Gitea's rule) — delete them first.
+         */
+        delete: operations["deleteOrganization"];
+        options?: never;
+        head?: never;
+        /** Update display name / description (owners) */
+        patch: operations["updateOrganization"];
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Members — everyone in at least one team (members only) */
+        get: operations["listOrganizationMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/members/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a member from every team (owners) */
+        delete: operations["removeOrganizationMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/user/orgs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organizations the caller belongs to */
+        get: operations["listMyOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        /** Teams (members only); the Owners team first */
+        get: operations["listTeams"];
+        put?: never;
+        /** Create a team (owners) */
+        post: operations["createTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/teams/{team}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+            };
+            cookie?: never;
+        };
+        /** One team (members only) */
+        get: operations["getTeam"];
+        put?: never;
+        post?: never;
+        /** Delete a team (owners); never the Owners team (405) */
+        delete: operations["deleteTeam"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a team (owners)
+         * @description Null fields are unchanged. The Owners team accepts only a description (405 otherwise).
+         */
+        patch: operations["updateTeam"];
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/teams/{team}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team members (members only) */
+        get: operations["listTeamMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/teams/{team}/members/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+                username: components["parameters"]["Username"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Add a user to the team (owners; idempotent) — this is how members join, no invitation */
+        put: operations["addTeamMember"];
+        post?: never;
+        /** Remove a user from the team (owners) */
+        delete: operations["removeTeamMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/teams/{team}/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Repositories the team reaches — all of the organization's when it includes all */
+        get: operations["listTeamRepositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/web/gitbase/orgs/{org}/teams/{team}/repos/{repo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+                repo: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Grant the team a repository of this organization (owners; idempotent) */
+        put: operations["addTeamRepository"];
+        post?: never;
+        /** Revoke the team's grant on a repository (owners) */
+        delete: operations["removeTeamRepository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Organization: {
+            name?: string;
+            fullName?: string | null;
+            description?: string | null;
+            /** Format: int64 */
+            createdAt?: number | null;
+            /** Format: int64 */
+            repositoryCount?: number;
+            viewerIsMember?: boolean;
+            viewerIsOwner?: boolean;
+            viewerCanCreateRepository?: boolean;
+        };
+        OrganizationSummary: {
+            name?: string;
+            fullName?: string | null;
+            description?: string | null;
+            viewerIsOwner?: boolean;
+            viewerCanCreateRepository?: boolean;
+        };
+        CreateOrganization: {
+            name: string;
+            fullName?: string;
+            description?: string;
+        };
+        UpdateOrganization: {
+            fullName?: string;
+            description?: string;
+        };
+        Team: {
+            name?: string;
+            description?: string | null;
+            /** @enum {string} */
+            permission?: "READ" | "WRITE" | "ADMIN";
+            includesAllRepositories?: boolean;
+            canCreateOrgRepo?: boolean;
+            ownerTeam?: boolean;
+            /** Format: int64 */
+            membersCount?: number;
+            /** Format: int64 */
+            repositoriesCount?: number;
+        };
+        CreateTeam: {
+            name: string;
+            description?: string;
+            /**
+             * @default READ
+             * @enum {string}
+             */
+            permission: "READ" | "WRITE" | "ADMIN";
+            /** @default false */
+            includesAllRepositories: boolean;
+            /** @default false */
+            canCreateOrgRepo: boolean;
+        };
+        UpdateTeam: {
+            name?: string;
+            description?: string;
+            /** @enum {string} */
+            permission?: "READ" | "WRITE" | "ADMIN";
+            includesAllRepositories?: boolean;
+            canCreateOrgRepo?: boolean;
+        };
+        TeamRepository: {
+            name?: string;
+            /** @enum {string} */
+            visibility?: "public" | "private";
+        };
+        UserSummaryPage: {
+            items?: components["schemas"]["UserSummary"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            hasNext?: boolean;
+        };
+        OrganizationSummaryPage: {
+            items?: components["schemas"]["OrganizationSummary"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            hasNext?: boolean;
+        };
+        TeamPage: {
+            items?: components["schemas"]["Team"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            hasNext?: boolean;
+        };
+        TeamRepositoryPage: {
+            items?: components["schemas"]["TeamRepository"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            hasNext?: boolean;
+        };
+        TransferResult: {
+            owner?: string;
+            repoName?: string;
+            /** @description New git path, /gitbase/{owner}/{repo}.git */
+            cloneUrlPath?: string;
+        };
+        ApiResponseTransferResult: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["TransferResult"];
+        };
+        ApiResponseOrganization: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Organization"];
+        };
+        ApiResponseOrganizationSummaryPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["OrganizationSummaryPage"];
+        };
+        ApiResponseUserSummaryPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["UserSummaryPage"];
+        };
+        ApiResponseTeam: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["Team"];
+        };
+        ApiResponseTeamPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["TeamPage"];
+        };
+        ApiResponseTeamRepositoryPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["TeamRepositoryPage"];
+        };
         UserSummary: {
             username?: string;
             fullName?: string | null;
@@ -900,9 +1420,19 @@ export interface components {
             headSha?: string | null;
             /** @description Target tip when the PR was opened */
             baseSha?: string | null;
+            /** @description Live source tip (OPEN only). Send it back as `expectedHeadSha` when merging. */
+            currentHeadSha?: string | null;
+            /** @description Issues referenced with a closing keyword (close/fix/resolve and their forms, outside code blocks and HTML comments) in the title or description. Empty unless the PR is OPEN and targets the default branch — only such a merge closes them (GitHub's rule; Gitea closes on a merge into any branch). */
+            closingIssues?: number[];
             author?: components["schemas"]["UserSummary"];
             mergedBy?: components["schemas"]["UserSummary"] | null;
+            /** @description New target tip after merging — the merge commit, the squash commit, or the last rebased commit */
             mergeCommitSha?: string | null;
+            /**
+             * @description How the pull request was landed; null unless MERGED
+             * @enum {string|null}
+             */
+            mergeMethod?: "merge" | "squash" | "rebase" | null;
             /** @description Live count; 0 for non-OPEN pull requests */
             commitsCount?: number;
             /** @description Live count; 0 for non-OPEN pull requests */
@@ -957,16 +1487,21 @@ export interface components {
         };
         MergePullRequest: {
             /**
-             * @description Phase 2 supports the merge-commit strategy only.
              * @default merge
              * @enum {string}
              */
-            mergeMethod: "merge";
+            mergeMethod: "merge" | "squash" | "rebase";
+            /** @description Overrides the default merge/squash commit message. Ignored by rebase. */
             commitMessage?: string | null;
+            /** @description Source tip the merger reviewed (GitHub's `sha`, Gitea's `head_commit_id`). If the branch has moved since, the merge is refused with 409. */
+            expectedHeadSha?: string | null;
         };
         MergeResult: {
             merged?: boolean;
+            /** @description New tip of the target branch */
             sha?: string;
+            /** @enum {string} */
+            mergeMethod?: "merge" | "squash" | "rebase";
             message?: string;
         };
         CreateComment: {
@@ -1034,6 +1569,8 @@ export interface components {
             /** Format: int64 */
             commentsCount?: number;
             closedBy?: components["schemas"]["UserSummary"] | null;
+            /** @description Pull request whose merge closed this issue through a closing keyword ("Fixes */
+            closedByPullNumber?: number | null;
             /**
              * Format: int64
              * @description epoch millis
@@ -1043,6 +1580,74 @@ export interface components {
             updatedAt?: number | null;
             /** Format: int64 */
             closedAt?: number | null;
+        };
+        IssueRef: {
+            number?: number;
+            title?: string;
+            /** @enum {string} */
+            state?: "OPEN" | "CLOSED";
+        };
+        IssueRefPage: {
+            issues?: components["schemas"]["IssueRef"][];
+            page?: number;
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            hasNext?: boolean;
+        };
+        AddIssueDependency: {
+            /** @description The issue this one will depend on */
+            number: number;
+        };
+        IssueTemplates: {
+            templates?: {
+                fileName?: string;
+                name?: string;
+                about?: string;
+                /** @description Prefill for the title (may end with a space) */
+                title?: string;
+                labels?: string[];
+                assignees?: string[];
+                body?: string;
+            }[];
+            blankIssuesEnabled?: boolean;
+            contactLinks?: {
+                name?: string;
+                /** @description Always http(s) */
+                url?: string;
+                about?: string;
+            }[];
+            errors?: {
+                fileName?: string;
+                message?: string;
+            }[];
+        };
+        ApiResponseIssueTemplates: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["IssueTemplates"];
+        };
+        ApiResponseIssueRef: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["IssueRef"];
+        };
+        ApiResponseIssueRefPage: {
+            /** Format: date-time */
+            timestamp?: string;
+            success?: boolean;
+            message?: string;
+            httpStatus?: string;
+            error?: string | null;
+            data?: components["schemas"]["IssueRefPage"];
         };
         IssueSummary: {
             number?: number;
@@ -1293,8 +1898,8 @@ export interface components {
             state?: string;
         };
         CreateRepositoryRequest: {
-            /** @description Owner's username (derived from auth principal in service) */
-            username: string;
+            /** @description Owner namespace. Omit (or send the caller's own username) for a personal repository; send an organization's name to create it there — allowed for its owners and for members of a team with `canCreateOrgRepo`. A creator who is not an owner becomes an ADMIN collaborator of the new repository (Gitea's behaviour). Anything else → 403. */
+            username?: string;
             repoName: string;
             /** @default false */
             isPrivate: boolean;
@@ -1329,6 +1934,18 @@ export interface components {
              * @description Epoch milliseconds of the last commit
              */
             lastCommitTime?: number;
+            permissions?: components["schemas"]["RepositoryPermissions"];
+        };
+        /** @description What the viewer may do, as on GitHub/Gitea repository payloads. Advisory, for rendering controls — every endpoint enforces its own check. */
+        RepositoryPermissions: {
+            /** @description Read / clone */
+            pull?: boolean;
+            /** @description Push */
+            push?: boolean;
+            /** @description Change repository settings (ADMIN+) */
+            admin?: boolean;
+            /** @description Delete the repository and manage collaborators */
+            owner?: boolean;
         };
         /** @description Compact commit info. Mirrors backend CommitSummaryDto. */
         CommitSummary: {
@@ -1665,6 +2282,11 @@ export interface components {
         IssueNumber: number;
         /** @description Username of the collaborator */
         CollaboratorName: string;
+        OrgName: string;
+        /** @description Team name, matched ignoring case */
+        TeamName: string;
+        Page: number;
+        Size: number;
     };
     requestBodies: never;
     headers: never;
@@ -1903,6 +2525,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponseError"];
                 };
             };
+            /** @description `username` is neither the caller nor an organization they may create repositories in */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
             /** @description Failed to create repository on disk */
             500: {
                 headers: {
@@ -1932,6 +2563,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseRepoList"];
+                };
+            };
+        };
+    };
+    transferRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Name of the target organization */
+                    newOwner: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Transferred */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTransferResult"];
+                };
+            };
+            /** @description Already owned by `newOwner`, or invalid body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Not the repository's owner, or may not create repositories in the target */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Repository not found / not visible, or `newOwner` is not an organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description The organization already has a repository with that name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
                 };
             };
         };
@@ -2832,6 +3529,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponseMergeResult"];
                 };
             };
+            /** @description Unknown `mergeMethod` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
             /** @description Caller lacks write access */
             403: {
                 headers: {
@@ -2850,7 +3556,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponseError"];
                 };
             };
-            /** @description Pull request is not OPEN */
+            /** @description Pull request is not OPEN, the branches have unrelated histories (rebase), or the rebase would replay more than 250 commits */
             405: {
                 headers: {
                     [name: string]: unknown;
@@ -2859,7 +3565,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponseError"];
                 };
             };
-            /** @description Merge conflict; `data` lists the conflicting paths */
+            /** @description Merge or rebase conflict (`data` lists the conflicting paths; for rebase the message names the commit that failed to apply), the target branch moved during the merge, the source moved since `expectedHeadSha`, or the pull request was merged concurrently */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2893,7 +3599,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponsePullRequest"];
                 };
             };
-            /** @description Caller is neither the author nor the repository owner */
+            /** @description Caller is neither the author nor a user with write access */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2936,7 +3642,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponsePullRequest"];
                 };
             };
-            /** @description Caller is neither the author nor the repository owner */
+            /** @description Caller is neither the author nor a user with write access */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3306,13 +4012,201 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponseError"];
                 };
             };
-            /** @description Issue is already closed */
+            /** @description Issue is already closed, or it is blocked by open issues it depends on (Gitea's rule — close or remove those dependencies first; a pull-request merge may still close it) */
             405: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    getIssueTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Templates (possibly none) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssueTemplates"];
+                };
+            };
+            /** @description Repository not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listIssueDependencies: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of issue references */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssueRefPage"];
+                };
+            };
+        };
+    };
+    addIssueDependency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddIssueDependency"];
+            };
+        };
+        responses: {
+            /** @description Dependency recorded; returns the issue now blocking this one */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssueRef"];
+                };
+            };
+            /** @description Self-dependency, or the number is not an issue in this repository */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Caller lacks write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Already recorded, or it would create a circular dependency */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    removeIssueDependency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+                dependency: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
+                };
+            };
+            /** @description Caller lacks write access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description No such dependency */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listIssueBlocks: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                username: components["parameters"]["Username"];
+                repoName: components["parameters"]["RepoName"];
+                /** @description Per-repository issue number (#1, */
+                number: components["parameters"]["IssueNumber"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of issue references */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIssueRefPage"];
                 };
             };
         };
@@ -3535,6 +4429,614 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    createOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrganization"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseOrganization"];
+                };
+            };
+            /** @description Invalid name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description Name taken by a user or organization, or reserved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    getOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseOrganization"];
+                };
+            };
+            /** @description No such organization (also for a personal account's name) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    deleteOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
+                };
+            };
+            /** @description Not an owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description The organization still owns repositories */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    updateOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrganization"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseOrganization"];
+                };
+            };
+            /** @description Not an owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listOrganizationMembers: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseUserSummaryPage"];
+                };
+            };
+            /** @description Not a member */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    removeOrganizationMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                username: components["parameters"]["Username"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
+                };
+            };
+            /** @description Not an owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description That user is the last owner */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listMyOrganizations: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of organizations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseOrganizationSummaryPage"];
+                };
+            };
+        };
+    };
+    listTeams: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of teams */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTeamPage"];
+                };
+            };
+            /** @description Not a member */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    createTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTeam"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTeam"];
+                };
+            };
+            /** @description Not an owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description A team with that name (ignoring case) exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    getTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Team */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTeam"];
+                };
+            };
+        };
+    };
+    deleteTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
+                };
+            };
+            /** @description The Owners team cannot be deleted */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    updateTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTeam"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTeam"];
+                };
+            };
+            /** @description Structural change to the Owners team */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listTeamMembers: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseUserSummaryPage"];
+                };
+            };
+        };
+    };
+    addTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+                username: components["parameters"]["Username"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Added (or already a member) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
+                };
+            };
+            /** @description The name is an organization, not a user */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    removeTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+                username: components["parameters"]["Username"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
+                };
+            };
+            /** @description Last member of the Owners team */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    listTeamRepositories: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of repositories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTeamRepositoryPage"];
+                };
+            };
+        };
+    };
+    addTeamRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Granted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
+                };
+            };
+            /** @description No such repository in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+            /** @description The team already includes every repository */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseError"];
+                };
+            };
+        };
+    };
+    removeTeamRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgName"];
+                /** @description Team name, matched ignoring case */
+                team: components["parameters"]["TeamName"];
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMessage"];
                 };
             };
         };

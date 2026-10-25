@@ -13,6 +13,7 @@ import {
   reopenPullRequest,
 } from '../features/pullRequests/pullRequestSlice';
 import { useAppDispatch, useAppSelector } from '../features/store';
+import { useRepoPermissions } from '../hooks/useRepoPermissions';
 import { pullRequestService } from '../services/pullRequestService';
 import type { Compare } from '../types/git';
 import { formatRelativeTime } from '../utils/dateFormatter';
@@ -27,6 +28,7 @@ const PullRequestDetail: React.FC = () => {
 
   const { current, currentLoading, currentError, actionError } = useAppSelector(s => s.pullRequests);
   const viewer = useAppSelector(s => s.auth.user);
+  const permissions = useRepoPermissions(username, repo);
 
   const [tab, setTab] = useState<Tab>('conversation');
   const [diff, setDiff] = useState<Compare | null>(null);
@@ -66,7 +68,9 @@ const PullRequestDetail: React.FC = () => {
   }
   if (!current) return <Shell><div /></Shell>;
 
-  const isOwner = !!viewer?.name && viewer.name === username;
+  // Merge needs write access; close/reopen also allows the pull request's author.
+  const isAuthor = !!viewer?.name && viewer.name === current.author?.username;
+  const canClose = permissions.push || isAuthor;
 
   const tabClass = (active: boolean) =>
     `px-3 py-2 text-sm border-b-2 -mb-px transition-colors ${
@@ -132,7 +136,8 @@ const PullRequestDetail: React.FC = () => {
             username={username}
             repo={repo}
             pr={current}
-            canMerge={isOwner}
+            canMerge={permissions.push}
+            canClose={canClose}
             actionError={actionError}
             onMerged={refresh}
             onClose={() => dispatch(closePullRequest({ username, repo, number }))}

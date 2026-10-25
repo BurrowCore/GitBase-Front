@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppSelector } from '../../features/store';
 import { UserProfile } from './UserProfile';
@@ -22,6 +23,8 @@ export const DashboardNavbar: React.FC = () => {
                         <h1 className="text-xl font-semibold text-gitbase-text-primary">GitBase Dashboard</h1>
                     </div>
                     <div className="flex items-center space-x-4">
+                        <Link to="/projects" className="text-sm text-gitbase-text-secondary hover:text-gitbase-text-primary">Repositories</Link>
+                        <Link to="/orgs" className="text-sm text-gitbase-text-secondary hover:text-gitbase-text-primary">Organizations</Link>
                         {user && <UserProfile user={user} onLogout={handleLogout} />}
                     </div>
                 </div>

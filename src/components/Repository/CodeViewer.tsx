@@ -6,7 +6,7 @@ import { gitService } from '../../services/gitService';
 import type { FileContent } from '../../types/git';
 import { MarkdownView } from './MarkdownView';
 
-/** Map common file extensions to Prism language ids (Gitea does this lexer-by-filename too). */
+/** Map common file extensions to Prism language ids. */
 const EXT_LANG: Record<string, string> = {
   ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx', mjs: 'javascript', cjs: 'javascript',
   java: 'java', kt: 'kotlin', scala: 'scala', groovy: 'groovy',
@@ -52,7 +52,7 @@ interface CodeViewerProps {
   onViewHistory?: (path: string) => void;
 }
 
-/** GitHub/Gitea-style blob view: header bar, image preview, markdown preview, highlighted code. */
+/** Blob view: header bar, image preview, markdown preview, highlighted code. */
 export function CodeViewer({
   file, loading, error, username, repo, refName, onViewHistory,
 }: CodeViewerProps) {

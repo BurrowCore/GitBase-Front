@@ -7,6 +7,9 @@ import type {
     Issue,
     IssueFilter,
     IssuePage,
+    IssueRef,
+    IssueRefPage,
+    IssueTemplates,
     Label,
     UpdateIssuePayload,
 } from '../types/issue';
@@ -99,6 +102,61 @@ export const issueService = {
             const res = await axiosInstance.post<ApiResponse<Comment>>(
                 `${base(username, repoName)}/${number}/comments`, { body },
             );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    // ── dependencies ──
+
+    /** Issues this one depends on ("blocked by"). */
+    async listDependencies(username: string, repoName: string, number: number): Promise<IssueRefPage> {
+        try {
+            const res = await axiosInstance.get<ApiResponse<IssueRefPage>>(
+                `${base(username, repoName)}/${number}/dependencies`,
+            );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    /** Issues that depend on this one ("blocks"). */
+    async listBlocks(username: string, repoName: string, number: number): Promise<IssueRefPage> {
+        try {
+            const res = await axiosInstance.get<ApiResponse<IssueRefPage>>(`${base(username, repoName)}/${number}/blocks`);
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    async addDependency(username: string, repoName: string, number: number, dependency: number): Promise<IssueRef> {
+        try {
+            const res = await axiosInstance.post<ApiResponse<IssueRef>>(
+                `${base(username, repoName)}/${number}/dependencies`, { number: dependency },
+            );
+            return res.data.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    async removeDependency(username: string, repoName: string, number: number, dependency: number): Promise<void> {
+        try {
+            await axiosInstance.delete(`${base(username, repoName)}/${number}/dependencies/${dependency}`);
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    },
+
+    // ── templates ──
+
+    /** Templates read live from the default branch; an empty list when the repo has none. */
+    async getTemplates(username: string, repoName: string): Promise<IssueTemplates> {
+        try {
+            const res = await axiosInstance.get<ApiResponse<IssueTemplates>>(`${base(username, repoName)}/templates`);
             return res.data.data;
         } catch (error) {
             throw this.handleError(error);

@@ -68,7 +68,6 @@ export function BranchSelector({ branches, current, onSelect, onCreate, onDelete
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white/5 rounded-lg text-gitbase-text-primary hover:bg-white/10"
       >
-        <span>🌿</span>
         <span className="font-medium">{current}</span>
         <span className="text-xs text-gitbase-text-secondary">▾</span>
       </button>

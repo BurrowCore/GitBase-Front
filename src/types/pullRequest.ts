@@ -24,9 +24,15 @@ export interface PullRequest {
     targetBranch: string;
     headSha: string | null;
     baseSha: string | null;
+    /** Live source tip (OPEN only) — sent back as `expectedHeadSha` so unreviewed pushes aren't merged. */
+    currentHeadSha: string | null;
+    /** Issues a merge into the default branch will close ("Fixes #N" in the title/description). */
+    closingIssues: number[];
     author: UserSummary;
     mergedBy: UserSummary | null;
     mergeCommitSha: string | null;
+    /** How it was landed; null unless MERGED. */
+    mergeMethod: MergeMethod | null;
     commitsCount: number;
     changedFilesCount: number;
     commentsCount: number;
@@ -67,14 +73,22 @@ export interface CreatePullRequestPayload {
     targetBranch: string;
 }
 
+/** The three supported merge methods. */
+export type MergeMethod = 'merge' | 'squash' | 'rebase';
+
 export interface MergePullRequestPayload {
-    mergeMethod?: 'merge';
+    mergeMethod?: MergeMethod;
+    /** Overrides the default merge/squash commit message; ignored by rebase. */
     commitMessage?: string;
+    /** The source tip the merger reviewed; the server answers 409 if the branch has moved. */
+    expectedHeadSha?: string;
 }
 
 export interface MergeResult {
     merged: boolean;
+    /** New tip of the target branch. */
     sha: string;
+    mergeMethod: MergeMethod;
     message: string;
 }
 
